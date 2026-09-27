@@ -52,7 +52,16 @@ async function hub<T>(cfg: HubConfig, path: string, init: { method?: string; bod
       cache: "no-store",
     });
   } catch {
-    throw new HubError(0, "Can't reach the home hub at " + base + ". Is it running?");
+    const local = /^http://(127.|localhost|192.168.|10.|172.(1[6-9]|2d|3[01]).)/.test(base);
+    throw new HubError(
+      0,
+      "Can't reach the home hub at " +
+        base +
+        ". Check the hub window is open." +
+        (local && location.protocol === "https:"
+          ? " If the browser asked to let this site reach apps or devices on your network, choose Allow (the lock icon in the address bar can change it)."
+          : ""),
+    );
   }
   const j = await res.json().catch(() => null);
   if (!res.ok) {

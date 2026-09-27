@@ -536,8 +536,8 @@ function HubSection() {
         ) : null}
       </div>
       <p className="hint">
-        On a phone, the hub needs a secure https address (the hub&apos;s README shows a free way to get one). On the same PC, the plain
-        address above works.
+        On the same PC, the plain address above works. The first time, the browser asks to let this site reach apps on this device:
+        choose Allow. On a phone, the hub needs a secure https address; the hub&apos;s README shows a free way to get one.
       </p>
     </section>
   );
