@@ -20,6 +20,9 @@ export interface UI {
   /** Rooms we're choosing music for ("Pick different music"). */
   pick: string[] | null;
   pickFor(rooms: string[] | null): void;
+  /** Where a tapped song plays in Music. Empty means ask each time. */
+  target: string[];
+  setTarget(ids: string[]): void;
   ask(text: string): void;
 }
 

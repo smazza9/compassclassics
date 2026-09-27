@@ -39,6 +39,21 @@ export function Shell() {
   const [detail, setDetail] = useState<string | null>(null);
   const [sheet, setSheet] = useState<{ item: PlayItem; rooms: string[] } | null>(null);
   const [pick, setPick] = useState<string[] | null>(null);
+  const [target, setTargetState] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("cc.target") ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
+  const setTarget = (ids: string[]) => {
+    setTargetState(ids);
+    try {
+      localStorage.setItem("cc.target", JSON.stringify(ids));
+    } catch {
+      /* storage off */
+    }
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
   const zonesRef = useRef([...h.zones, ...h.spotifyZones]);
   useEffect(() => {
@@ -83,9 +98,12 @@ export function Shell() {
       closeDetail: () => setDetail(null),
       openSheet: (item, rooms = []) => setSheet({ item, rooms }),
       pick,
+      target,
+      setTarget,
       pickFor: (rooms) => {
         setPick(rooms);
         if (rooms) {
+          setTarget(rooms);
           setDetail(null);
           setView("music");
           scrollRef.current?.scrollTo({ top: 0 });
@@ -96,7 +114,7 @@ export function Shell() {
         if (!wide) setView("ask");
       },
     }),
-    [view, pick, wide],
+    [view, pick, wide, target],
   );
 
   const main = view === "ask" && wide ? "home" : view;

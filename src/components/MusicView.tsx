@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { PlayItem } from "@/lib/types";
-import { useHouse } from "@/lib/house";
+import { NeedsSonosSetup, useHouse, whereOf } from "@/lib/house";
 import * as sp from "@/lib/spotify";
 import { DEMO_FAVS } from "@/lib/demo";
 import { cx, errorText, fmtMs, listWords, norm } from "@/lib/util";
@@ -28,7 +28,23 @@ export function MusicView() {
     return () => clearTimeout(t);
   }, [q]);
 
-  const play = (item: PlayItem) => ui.openSheet(item, ui.pick ?? []);
+  const allRooms = [...h.rooms, ...h.spotifyRooms];
+  const target = ui.target.filter((id) => allRooms.some((r) => r.id === id));
+  // One tap: with rooms picked above, a song plays there right away.
+  const play = async (item: PlayItem) => {
+    if (!target.length) {
+      ui.openSheet(item, []);
+      return;
+    }
+    h.a.notify("Starting " + item.title + "…", "info");
+    try {
+      h.a.notify(await h.a.play(item, target));
+      if (ui.pick) ui.pickFor(null);
+    } catch (e) {
+      if (e instanceof NeedsSonosSetup) ui.openSheet(item, target);
+      else h.a.notify(errorText(e), "err");
+    }
+  };
   const open = (d: Drill) => setDrill((s) => [...s, d]);
   const top = drill[drill.length - 1];
 
@@ -37,12 +53,28 @@ export function MusicView() {
       <h1 className="headline" style={{ marginTop: 6 }}>
         Music
       </h1>
-      {ui.pick ? (
-        <div className="pickbar">
-          <span>Choosing music for {listWords(ui.pick.map(h.a.roomName))}</span>
-          <button onClick={() => ui.pickFor(null)}>Cancel</button>
+      <div className="target" role="group" aria-label="Play on">
+        <span className="target-label">Play on</span>
+        <div className="target-chips">
+          {allRooms.map((r) => {
+            const on = target.includes(r.id);
+            return (
+              <button
+                key={r.id}
+                className="chip"
+                aria-pressed={on}
+                onClick={() => ui.setTarget(on ? target.filter((x) => x !== r.id) : [...target, r.id])}
+              >
+                <Icon name={on ? "check" : r.kind === "spotify" ? "phone" : "speaker"} />
+                {r.name}
+              </button>
+            );
+          })}
         </div>
-      ) : null}
+        <small className="target-hint">
+          {target.length ? "Tap any song to play it " + listWords(target.map((id) => whereOf(h.a.roomName(id)))) + "." : "Pick rooms here and any song you tap plays there."}
+        </small>
+      </div>
 
       {top ? (
         <>
