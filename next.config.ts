@@ -6,6 +6,17 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // One address: www goes to the plain domain.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.compassclassics.com" }],
+        destination: "https://compassclassics.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
