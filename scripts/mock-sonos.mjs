@@ -30,6 +30,7 @@ const favorites = [
 let gid = 100;
 const stats = { total: 0, limited: 0, byPath: {} };
 let limitMode = false;
+let budgetLeft = 20000;
 const newGroupId = (coord) => coord + ":" + ++gid;
 
 /** Each group: members, coordinator, what is playing. */
@@ -226,15 +227,28 @@ http
       return res.end(JSON.stringify(stats));
     }
     if (path === "/test/limit") {
-      limitMode = !!b.on;
+      // {on:true} limits every other call; {on:true, all:true} refuses everything, like a used-up budget.
+      limitMode = b.on ? (b.all ? "all" : "half") : false;
       res.writeHead(200, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ limitMode }));
     }
+    if (path === "/test/budget") {
+      budgetLeft = Number(b.remaining ?? 20000);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ budgetLeft }));
+    }
     stats.total += 1;
     stats.byPath[path.replace(/RINCON_[A-Z0-9]+(:d+)?/g, ":id")] = (stats.byPath[path.replace(/RINCON_[A-Z0-9]+(:d+)?/g, ":id")] ?? 0) + 1;
-    if (limitMode && stats.total % 2 === 0) {
+    // Like the real API: a daily budget reported on every answer, reset at midnight UTC.
+    budgetLeft = Math.max(0, budgetLeft - 1);
+    const midnight = new Date();
+    midnight.setUTCHours(24, 0, 0, 0);
+    const rate = { "ratelimit-limit": "20000", "ratelimit-remaining": String(budgetLeft), "ratelimit-reset": String(Math.round((midnight - Date.now()) / 1000)) };
+    const writeHead = res.writeHead.bind(res);
+    res.writeHead = (status, headers = {}) => writeHead(status, { ...rate, ...headers });
+    if (limitMode === "all" || (limitMode && stats.total % 2 === 0) || budgetLeft <= 0) {
       stats.limited += 1;
-      res.writeHead(429, { "Content-Type": "application/json", "Retry-After": "5" });
+      res.writeHead(429, limitMode === "half" ? { "Content-Type": "application/json", "Retry-After": "5" } : { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ errorCode: "ERROR_RATE_LIMITED" }));
     }
     if (!/^Bearer mock-/.test(req.headers.authorization ?? "")) {

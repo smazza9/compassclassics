@@ -23,15 +23,33 @@ export class SonosError extends Error {
  */
 let limitedUntil = 0;
 let backoffSec = 0;
+let resetsAt = 0;
+let budget: { remaining: number; reset: number; at: number } | null = null;
 export function noteRateLimit(retryAfterSec = 0) {
   backoffSec = Math.min(backoffSec ? backoffSec * 2 : 30, 300);
-  const wait = Math.max(retryAfterSec, backoffSec);
+  // A long wait means the daily budget ran out; still peek every 10 minutes.
+  if (retryAfterSec > 600) resetsAt = Date.now() + retryAfterSec * 1000;
+  const wait = Math.min(Math.max(retryAfterSec, backoffSec), 600);
   limitedUntil = Math.max(limitedUntil, Date.now() + wait * 1000);
 }
 export function noteSonosOk() {
   backoffSec = 0;
+  resetsAt = 0;
 }
 export const rateLimitedFor = () => Math.max(0, limitedUntil - Date.now());
+/** When the daily budget comes back (0 if it isn't used up). */
+export const budgetResetsAt = () => (resetsAt > Date.now() ? resetsAt : 0);
+
+/**
+ * How long to wait between polls so the daily budget lasts until it resets,
+ * even with the app left open all day: calls per poll x seconds left / calls left.
+ */
+export function pollPaceMs(callsPerPoll: number): number {
+  if (!budget) return 10000;
+  const secsLeft = Math.max(60, budget.reset - (Date.now() - budget.at) / 1000);
+  const pace = (callsPerPoll * secsLeft * 1000) / Math.max(1, budget.remaining);
+  return Math.min(180000, Math.max(10000, pace));
+}
 
 async function call<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
   const res = await fetch("/api/sonos/v1/" + path, {
@@ -77,7 +95,8 @@ export async function snapshot(householdId?: string, withVolumes = true, withDet
     if (res.status === 429) noteRateLimit(err.retryAfter);
     throw err;
   }
-  const s = j as SonosSnapshot & { retryAfter?: number };
+  const s = j as SonosSnapshot;
+  if (s.budget) budget = { ...s.budget, at: Date.now() };
   // A partly rate-limited snapshot still counts as a warning to slow down.
   if (s.limited) noteRateLimit(Number(s.retryAfter) || 0);
   else noteSonosOk();

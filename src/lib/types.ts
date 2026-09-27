@@ -160,6 +160,10 @@ export interface SonosSnapshot {
   volumes?: boolean;
   /** Sonos rate-limited part of this snapshot; back off for a bit. */
   limited?: boolean;
+  /** Seconds Sonos asked us to wait (0 when it did not say). */
+  retryAfter?: number;
+  /** Sonos daily request budget: calls left and seconds until it resets. */
+  budget?: { remaining: number; reset: number } | null;
   at: number;
 }
 

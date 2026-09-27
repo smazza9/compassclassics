@@ -93,11 +93,20 @@ export async function refreshSonos(t: SonosTokens): Promise<SonosTokens> {
 }
 
 /**
- * Call the Sonos Control API with this browser's sign-in, refreshing the
- * access token when it is close to expiring or Sonos says it is stale.
- * Returns the new tokens when they changed, so the caller can save them.
+ * Sonos gives each home a daily request budget (20,000, resetting at midnight
+ * UTC) and reports it on every answer: how many are left and seconds to reset.
  */
-/** Seconds Sonos asked us to wait after a 429 (0 when it didn't say). Logs the rate headers so we can see the limit. */
+export function readBudget(res: Response): { remaining: number; reset: number } | null {
+  const remaining = Number(res.headers.get("ratelimit-remaining") ?? "");
+  const reset = Number(res.headers.get("ratelimit-reset") ?? "");
+  if (!res.headers.has("ratelimit-remaining") || !Number.isFinite(remaining) || !Number.isFinite(reset)) return null;
+  return { remaining, reset };
+}
+
+/**
+ * Seconds to wait after a 429: Retry-After when Sonos gives one, otherwise
+ * the time until the daily budget resets. Logs the rate headers.
+ */
 export function rateLimitInfo(res: Response, path: string): number {
   const ra = Number(res.headers.get("retry-after") ?? "");
   const extra: Record<string, string> = {};
@@ -105,9 +114,16 @@ export function rateLimitInfo(res: Response, path: string): number {
     if (/rate|retry|quota|limit/i.test(k)) extra[k] = v;
   });
   console.warn("sonos 429", path.replace(/RINCON_\w+(:\d+)?/g, "R").replace(/Sonos_[\w.-]+/g, "HH"), JSON.stringify(extra));
-  return Number.isFinite(ra) && ra > 0 ? Math.min(ra, 3600) : 0;
+  if (Number.isFinite(ra) && ra > 0) return Math.min(ra, 86400);
+  const b = readBudget(res);
+  return b && b.remaining <= 0 && b.reset > 0 ? Math.min(b.reset, 86400) : 0;
 }
 
+/**
+ * Call the Sonos Control API with this browser's sign-in, refreshing the
+ * access token when it is close to expiring or Sonos says it is stale.
+ * Returns the new tokens when they changed, so the caller can save them.
+ */
 export async function sonosCall(
   tokens: SonosTokens,
   path: string,

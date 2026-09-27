@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { rateLimitInfo, readSonos, sonosCall, writeSonos, type SonosTokens } from "@/lib/server/session";
+import { rateLimitInfo, readBudget, readSonos, sonosCall, writeSonos, type SonosTokens } from "@/lib/server/session";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
   let changed = false;
   let limited = false;
   let retryAfter = 0;
+  let budget: { remaining: number; reset: number } | null = null;
   const get = async (path: string): Promise<{ json: Json | null; status: number }> => {
     if (limited) return { json: null, status: 429 };
     const r = await sonosCall(tokens, path);
@@ -31,6 +32,8 @@ export async function GET(req: NextRequest) {
       tokens = r.tokens;
       changed = true;
     }
+    const b = readBudget(r.res);
+    if (b && (!budget || b.remaining < budget.remaining)) budget = b;
     if (r.res.status === 401) throw Object.assign(new Error("unauthorized"), { status: 401 });
     if (r.res.status === 429) {
       limited = true;
@@ -99,6 +102,7 @@ export async function GET(req: NextRequest) {
       volumes: withVolumes && !limited,
       limited,
       retryAfter,
+      budget,
       at: Date.now(),
     });
   } catch (e) {

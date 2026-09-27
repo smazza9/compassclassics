@@ -226,6 +226,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
   const quietUntil = useRef(0);
   const freshHousehold = useRef(false);
   const hasVolumes = useRef(false);
+  const lastPollAt = useRef(0);
   const pollSonos = useCallback(async (force = false) => {
     if (sonosBusy.current) return;
     // Sonos asked us to slow down: nothing asks it anything until the wait is over.
@@ -235,9 +236,13 @@ export function HouseProvider({ children }: { children: ReactNode }) {
     try {
       const prev = R.current.snap;
       const n = pollCount.current++;
-      const playing = !!prev?.groups.some((g) => /PLAYING|BUFFERING/.test(g.playbackState ?? ""));
+      const playingGroups = prev?.groups.filter((g) => /PLAYING|BUFFERING/.test(g.playbackState ?? "")).length ?? 0;
       // With nothing playing, every other tick is enough.
-      if (!force && prev && !playing && n % 2 === 1) return;
+      if (!force && prev && !playingGroups && n % 2 === 1) return;
+      // Stay inside Sonos's daily budget: slow down as it runs low.
+      const perPoll = 1 + playingGroups + (prev?.players.length ?? 6) / 6;
+      if (!force && prev && Date.now() - lastPollAt.current < sonos.pollPaceMs(perPoll) - 500) return;
+      lastPollAt.current = Date.now();
       const hh = freshHousehold.current ? undefined : prev?.householdId;
       freshHousehold.current = false;
       // Sonos has a small request budget per home: what's playing every other
@@ -292,8 +297,13 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       if (status === 503) quietUntil.current = Date.now() + 20000;
       if (status === 429) {
         // Say so right away; rooms stay on screen and come back on their own.
+        const resets = sonos.budgetResetsAt();
         const mins = Math.max(1, Math.round(sonos.rateLimitedFor() / 60000));
-        setSonosError(`Sonos asked the app to slow down. Everything comes back on its own in about ${mins} ${mins === 1 ? "minute" : "minutes"}.`);
+        setSonosError(
+          resets
+            ? `Sonos's daily limit for outside apps is used up. It resets at ${new Date(Math.ceil(resets / 60000) * 60000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}, and the app picks back up on its own.`
+            : `Sonos asked the app to slow down. Everything comes back on its own in about ${mins} ${mins === 1 ? "minute" : "minutes"}.`,
+        );
       } else if (sonosFails.current >= 4) {
         // One hiccup is not worth a warning; a minute of them is.
         setSonosError(status === 404 ? errorText(e) : "Sonos isn't answering right now. The app keeps trying.");

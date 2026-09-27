@@ -35,9 +35,13 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] 
     }
     if (res.status === 429) {
       const mins = Math.max(1, Math.round((retryAfter || 60) / 60));
+      const wait = mins >= 90 ? "about " + Math.round(mins / 60) + " hours" : mins === 1 ? "about a minute" : "about " + mins + " minutes";
       const out = NextResponse.json(
         {
-          error: "Sonos is asking apps to slow down. Give it about " + mins + (mins === 1 ? " minute" : " minutes") + " and try again.",
+          error:
+            mins >= 15
+              ? "Sonos's daily limit for outside apps is used up. It resets in " + wait + ", then everything works again."
+              : "Sonos is asking apps to slow down. Give it " + wait + " and try again.",
           errorCode: "RATE_LIMITED",
           retryAfter,
           status: 429,
