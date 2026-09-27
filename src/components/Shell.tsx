@@ -190,20 +190,20 @@ export function Shell() {
             </button>
           ))}
         </nav>
-      </div>
 
-      <RoomDetail roomId={detail} />
-      <PlayOnSheet
-        sheet={sheet}
-        onClose={() => setSheet(null)}
-        onPlayed={() => {
-          if (pick) {
-            setPick(null);
-            ui.go("home");
-          }
-        }}
-      />
-      <Toast />
+        <RoomDetail roomId={detail} />
+        <PlayOnSheet
+          sheet={sheet}
+          onClose={() => setSheet(null)}
+          onPlayed={() => {
+            if (pick) {
+              setPick(null);
+              ui.go("home");
+            }
+          }}
+        />
+        <Toast />
+      </div>
     </UICtx.Provider>
   );
 }
