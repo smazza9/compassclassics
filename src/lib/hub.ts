@@ -52,7 +52,7 @@ async function hub<T>(cfg: HubConfig, path: string, init: { method?: string; bod
       cache: "no-store",
     });
   } catch {
-    const local = /^http://(127.|localhost|192.168.|10.|172.(1[6-9]|2d|3[01]).)/.test(base);
+    const local = /^http:\/\/(127\.|localhost|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(base);
     throw new HubError(
       0,
       "Can't reach the home hub at " +
