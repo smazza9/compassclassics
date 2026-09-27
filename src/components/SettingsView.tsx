@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useHouse } from "@/lib/house";
 import * as sp from "@/lib/spotify";
 import { testTone } from "@/lib/spotifyPlayer";
+import { pickerSupported, showSpeakerPicker } from "@/lib/outputPicker";
 import { defaultScenes, type Scene } from "@/lib/scenes";
 import { errorText } from "@/lib/util";
 import { EqControls } from "./EqControls";
@@ -306,6 +307,12 @@ function DevicesSection() {
           {testing ? <Spinner /> : <Icon name="wave" />}
           Test sound
         </button>
+        {pickerSupported() ? (
+          <button className="btn sm gold" onClick={() => void showSpeakerPicker()}>
+            <Icon name="bluetooth" />
+            Choose speaker
+          </button>
+        ) : null}
         {hasAcct ? (
           <button className="btn sm" onClick={() => h.a.refreshSpotify(true)}>
             <Icon name="refresh" />

@@ -7,6 +7,7 @@ import { cx, errorText } from "@/lib/util";
 import { Icon } from "./Icons";
 import { ZoneCard } from "./ZoneCard";
 import { greeting, useUI } from "./ui";
+import { pickerSupported, showSpeakerPicker } from "@/lib/outputPicker";
 
 export function HomeView() {
   const h = useHouse();
@@ -110,7 +111,10 @@ export function HomeView() {
         <>
           <div className="section-label">
             <span>Spotify speakers</span>
-            <button onClick={() => h.a.refreshSpotify(true)}>Refresh</button>
+            <span style={{ display: "flex", gap: 6 }}>
+              {pickerSupported() ? <button onClick={() => void showSpeakerPicker()}>Choose speaker</button> : null}
+              <button onClick={() => h.a.refreshSpotify(true)}>Refresh</button>
+            </span>
           </div>
           {h.spotifyZones.length ? (
             <div className="cards">

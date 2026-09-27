@@ -275,7 +275,6 @@ function SongRow({ t, play, num }: { t: sp.SpTrack; play: (i: PlayItem) => void;
 }
 
 function DemoResults({ query, play }: { query: string; play: (i: PlayItem) => void }) {
-  const ui = useUI();
   const rows = useMemo(() => {
     const out: { fav: (typeof DEMO_FAVS)[number]; i: number }[] = [];
     const qq = norm(query);
@@ -320,24 +319,40 @@ function DemoResults({ query, play }: { query: string; play: (i: PlayItem) => vo
       ) : (
         <p className="empty">Nothing in the example favorites matches “{query}”.</p>
       )}
-      <div className="banner" style={{ marginTop: 18 }}>
-        <div>
-          <b>Every song on Spotify</b>
-          Connect Spotify in Settings and this box searches all of it: any song, artist or album.
-        </div>
-        <button className="btn sm gold go" onClick={() => ui.go("settings")}>
-          Connect
-        </button>
-      </div>
+      <ConnectCard />
     </>
   );
 }
 
 /* ---------- browsing ---------- */
 
-function Browse({ play, open }: { play: (i: PlayItem) => void; open: (d: Drill) => void }) {
+/** Start Spotify sign in right here, or send to Settings if the app has no Client ID yet. */
+function useConnectSpotify() {
   const h = useHouse();
   const ui = useUI();
+  const id = h.config?.spotifyClientId;
+  return () => (id ? void sp.beginLogin(id, { returnTo: "/?view=music" }) : ui.go("settings"));
+}
+
+function ConnectCard() {
+  const connect = useConnectSpotify();
+  return (
+    <div className="banner" style={{ marginTop: 16 }}>
+      <span className="dot" aria-hidden="true" />
+      <div>
+        <b>Every song on Spotify</b>
+        Connect Spotify and this search covers all of it: any song, artist, album or playlist. The songs below are only examples.
+      </div>
+      <button className="btn sm gold go" onClick={connect}>
+        <Icon name="link" />
+        Connect Spotify
+      </button>
+    </div>
+  );
+}
+
+function Browse({ play, open }: { play: (i: PlayItem) => void; open: (d: Drill) => void }) {
+  const h = useHouse();
   const [mine, setMine] = useState<sp.SpPlaylist[] | null>(null);
   const [recent, setRecent] = useState<sp.SpTrack[] | null>(null);
   const acct = h.primary;
@@ -369,6 +384,7 @@ function Browse({ play, open }: { play: (i: PlayItem) => void; open: (d: Drill) 
 
   return (
     <>
+      {!acct ? <ConnectCard /> : null}
       {h.live ? (
         <>
           <div className="label">
@@ -506,17 +522,7 @@ function Browse({ play, open }: { play: (i: PlayItem) => void; open: (d: Drill) 
             <p className="empty">No playlists on this Spotify account yet.</p>
           )}
         </>
-      ) : (
-        <div className="banner" style={{ marginTop: 22 }}>
-          <div>
-            <b>Search every song</b>
-            Connect Spotify in Settings to search any song, artist or album and send it to any room.
-          </div>
-          <button className="btn sm gold go" onClick={() => ui.go("settings")}>
-            Connect
-          </button>
-        </div>
-      )}
+      ) : null}
     </>
   );
 }
