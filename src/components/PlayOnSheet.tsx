@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import type { PlayItem, RoomRef } from "@/lib/types";
-import { useHouse, whereOf } from "@/lib/house";
+import { NeedsSonosSetup, useHouse, whereOf } from "@/lib/house";
 import { DEMO_FAV } from "@/lib/demo";
 import { cx, errorText, listWords } from "@/lib/util";
 import { Art } from "./Cover";
 import { Icon } from "./Icons";
 import { Spinner } from "./ui";
+import { SonosSetupSteps } from "./SonosSetup";
 
 /** Which rooms can play this item. */
 function targetsFor(item: PlayItem, rooms: RoomRef[], spRooms: RoomRef[], live: boolean): RoomRef[] {
@@ -59,6 +60,7 @@ function SheetBody({ item, preselect, onClose, onPlayed }: { item: PlayItem; pre
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [needsSetup, setNeedsSetup] = useState(false);
 
   const chosen = targets.filter((t) => sel.has(t.id));
   const sonosCount = targets.filter((t) => t.kind !== "spotify").length;
@@ -98,7 +100,8 @@ function SheetBody({ item, preselect, onClose, onPlayed }: { item: PlayItem; pre
       onPlayed?.();
       onClose();
     } catch (e) {
-      setErr(errorText(e));
+      if (e instanceof NeedsSonosSetup) setNeedsSetup(true);
+      else setErr(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -107,6 +110,37 @@ function SheetBody({ item, preselect, onClose, onPlayed }: { item: PlayItem; pre
   const spSelected = chosen.filter((c) => c.kind === "spotify");
   const sameAccountTwice =
     spSelected.length > 1 && new Set(spSelected.map((c) => c.id.split(":")[1])).size < spSelected.length;
+
+  if (needsSetup) {
+    return (
+      <>
+        <div className="s-head">
+          <span className="cover">{cover}</span>
+          <span>
+            <b>One time: let Sonos play any song</b>
+            <small>
+              {item.title} is waiting for {listWords(chosen.map((c) => c.name))}
+            </small>
+          </span>
+        </div>
+        <p className="set-note" style={{ marginTop: 0 }}>
+          Sonos only lets apps start its favorites. So the app keeps one Spotify playlist, fills it with what you pick, and starts it in
+          the room. Set it up once and every song works in every room.
+        </p>
+        <SonosSetupSteps
+          seed={item}
+          readyLabel="Play now"
+          onReady={() => {
+            setNeedsSetup(false);
+            void go();
+          }}
+        />
+        <button className="linkbtn" style={{ display: "block", margin: "10px auto 0" }} onClick={() => setNeedsSetup(false)}>
+          Back to rooms
+        </button>
+      </>
+    );
+  }
 
   return (
     <>

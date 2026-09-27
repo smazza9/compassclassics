@@ -582,6 +582,8 @@ export async function resolveUris(acct: SpotifyAccount, item: Extract<PlayItem, 
 
 /* ---------- room playlists (search to Sonos without extra hardware) ---------- */
 
+/** The one playlist the app refills to send any song to Sonos (added once to My Sonos). */
+export const SONOS_PLAYLIST = "Compass Classics";
 export const ROOM_PLAYLIST_PREFIX = "Compass Classics · ";
 export const roomPlaylistName = (room: string) => ROOM_PLAYLIST_PREFIX + room;
 

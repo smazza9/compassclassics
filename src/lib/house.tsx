@@ -97,8 +97,8 @@ export interface Actions {
   connectHub(cfg: HubConfig): Promise<boolean>;
   disconnectHub(): void;
   checkHub(): Promise<void>;
-  setupRoomPlaylists(): Promise<string>;
-  roomSetup(): { room: string; favorite: SonosFavorite | null }[];
+  setupSonosPlaylist(seed?: PlayItem): Promise<string>;
+  sonosSetup(): { ready: boolean; favorite: SonosFavorite | null };
   submitPin(pin: string): Promise<boolean>;
 }
 
@@ -108,6 +108,13 @@ export function useHouse(): House {
   const h = useContext(Ctx);
   if (!h) throw new Error("useHouse must be used inside <HouseProvider>");
   return h;
+}
+
+/** Sonos only starts favorites, so any-song-on-Sonos needs the app's playlist in My Sonos once. */
+export class NeedsSonosSetup extends Error {
+  constructor() {
+    super("Add the Compass Classics playlist to Sonos favorites once, then any song plays in any room.");
+  }
 }
 
 const NO_ACCOUNTS: SpotifyAccount[] = [];
@@ -405,9 +412,12 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       return f;
     };
 
-    const roomFavorite = (favs: SonosFavorite[], room: string) =>
-      favs.find((f) => norm(f.name) === norm(sp.roomPlaylistName(room))) ?? null;
-    const anyCompassFavorite = (favs: SonosFavorite[]) => favs.find((f) => norm(f.name).startsWith(norm(sp.ROOM_PLAYLIST_PREFIX))) ?? null;
+    /** The favorite the app refills: a room's own if there is one, else the shared "Compass Classics". */
+    const compassFavorite = (favs: SonosFavorite[], room?: string) =>
+      (room ? favs.find((f) => norm(f.name) === norm(sp.roomPlaylistName(room))) : undefined) ??
+      favs.find((f) => norm(f.name) === norm(sp.SONOS_PLAYLIST)) ??
+      favs.find((f) => norm(f.name).startsWith(norm(sp.SONOS_PLAYLIST))) ??
+      null;
 
     const playlistIds = new Map<string, string>();
     const roomPlaylistId = async (acct: SpotifyAccount, name: string) => {
@@ -459,11 +469,8 @@ export function HouseProvider({ children }: { children: ReactNode }) {
         return;
       }
       const favs = await loadFavorites();
-      const room = roomName(ids[0]);
-      const fav = roomFavorite(favs, room) ?? anyCompassFavorite(favs);
-      if (!fav) {
-        throw new Error("One quick setup step first: open Settings, then Play any song on Sonos. It takes about two minutes.");
-      }
+      const fav = compassFavorite(favs, roomName(ids[0]));
+      if (!fav) throw new NeedsSonosSetup();
       const plId = await roomPlaylistId(acct, fav.name);
       if (!plId) {
         throw new Error(`Couldn't find the playlist "${fav.name}" in ${acct.name}'s Spotify. Sign in with the Spotify account that Sonos uses.`);
@@ -889,39 +896,35 @@ export function HouseProvider({ children }: { children: ReactNode }) {
 
     const checkHub = () => checkHubWith(R.current.hubCfg);
 
-    const roomSetup = () => {
-      const favs = R.current.favorites ?? [];
-      return R.current.rooms.map((r) => ({ room: r.name, favorite: roomFavorite(favs, r.name) }));
+    const sonosSetup = () => {
+      const fav = compassFavorite(R.current.favorites ?? []);
+      return { ready: !!fav, favorite: fav };
     };
 
-    const setupRoomPlaylists = async (): Promise<string> => {
+    /**
+     * Make (or refill) the one Spotify playlist the app sends songs through,
+     * seeded with the song Dad just picked so it's ready the moment he adds it.
+     */
+    const setupSonosPlaylist = async (seed?: PlayItem): Promise<string> => {
       const acct = primary();
       if (!acct) throw new Error("Connect Spotify first, with the same account Sonos uses.");
-      const names = R.current.rooms.map((r) => r.name);
-      if (!names.length) throw new Error("No rooms yet. Link Sonos first.");
-      // Seed each playlist with one song so Sonos can open it.
-      let seed: string | null = null;
+      let uris: string[] = [];
       try {
-        const r = await sp.search(acct, "Hotel California Eagles", ["track"]);
-        seed = r.tracks[0]?.uri ?? null;
+        if (seed?.type === "spotify") uris = (await sp.resolveUris(acct, seed, 40)).uris;
+        if (!uris.length) uris = (await sp.search(acct, "Hotel California Eagles", ["track"])).tracks.slice(0, 1).map((t) => t.uri);
       } catch {
-        seed = null;
+        uris = [];
       }
-      const made: string[] = [];
-      for (const n of names) {
-        const name = sp.roomPlaylistName(n);
-        let id = await roomPlaylistId(acct, name);
-        if (!id) {
-          const p = await sp.createPlaylist(acct, name, "Used by Compass Classics to send music to the " + n + ". Leave it in your library.");
-          id = p.id;
-          playlistIds.set(acct.id + "|" + name, id);
-          if (seed) await sp.replacePlaylist(acct, id, [seed]).catch(() => {});
-          made.push(n);
-        }
+      let id = await roomPlaylistId(acct, sp.SONOS_PLAYLIST);
+      let made = false;
+      if (!id) {
+        const p = await sp.createPlaylist(acct, sp.SONOS_PLAYLIST, "Compass Classics refills this playlist to send music to Sonos. Keep it in your library and in Sonos favorites.");
+        id = p.id;
+        playlistIds.set(acct.id + "|" + sp.SONOS_PLAYLIST, id);
+        made = true;
       }
-      return made.length
-        ? "Made " + made.length + " room playlist" + (made.length > 1 ? "s" : "") + " in " + acct.name + "'s Spotify."
-        : "The room playlists are already there.";
+      if (uris.length) await sp.replacePlaylist(acct, id, uris).catch(() => {});
+      return made ? "Made the Compass Classics playlist in " + acct.name + "'s Spotify." : "The Compass Classics playlist is ready in " + acct.name + "'s Spotify.";
     };
 
     const submitPin = async (pin: string) => {
@@ -975,8 +978,8 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       connectHub,
       disconnectHub,
       checkHub,
-      setupRoomPlaylists,
-      roomSetup,
+      setupSonosPlaylist,
+      sonosSetup,
       submitPin,
     };
   }, [pollSonos, kickSonos, pollSpotify, kickSpotify, checkHubWith]);

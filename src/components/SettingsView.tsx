@@ -8,6 +8,7 @@ import { pickerSupported, showSpeakerPicker } from "@/lib/outputPicker";
 import { defaultScenes, type Scene } from "@/lib/scenes";
 import { errorText } from "@/lib/util";
 import { EqControls } from "./EqControls";
+import { SonosSetupSteps } from "./SonosSetup";
 import { Icon, deviceIcon } from "./Icons";
 import { Spinner } from "./ui";
 
@@ -424,11 +425,8 @@ function DevicesSection() {
 
 function SearchToSonosSection() {
   const h = useHouse();
-  const [busy, setBusy] = useState(false);
-  const [checking, setChecking] = useState(false);
   if (!h.live) return null;
-  const rows = h.a.roomSetup();
-  const ready = rows.filter((r) => r.favorite).length;
+  const { ready } = h.a.sonosSetup();
   const hubOk = h.hub.status === "ok";
   return (
     <section className="set">
@@ -438,74 +436,23 @@ function SearchToSonosSection() {
             <Icon name="search" />
             Play any song on Sonos
           </h3>
-          <p>{hubOk ? "Using the home hub" : ready + " of " + rows.length + " rooms set up"}</p>
+          <p>{hubOk ? "Using the home hub" : ready ? "Ready in every room" : "One time setup, about a minute"}</p>
         </div>
-        <Status on={hubOk || ready === rows.length} warn={ready > 0 && ready < rows.length} label={hubOk || ready === rows.length ? "Ready" : "Setup"} />
+        <Status on={hubOk || ready} label={hubOk || ready ? "Ready" : "Setup"} />
       </div>
-      <p className="set-note">
-        Sonos only lets apps start its favorites, so each room gets a Spotify playlist the app fills with whatever you pick. One time
-        setup, about two minutes, done on his phone.
-      </p>
-      <ol className="steps">
-        <li>Connect Spotify with the same account his Sonos uses.</li>
-        <li>
-          Tap <b>Make room playlists</b> below.
-        </li>
-        <li>
-          In the Sonos app: Browse, Spotify, Your Library, Playlists. On each <b>Compass Classics · room</b> playlist tap the three dots,
-          then <b>Add to My Sonos</b>.
-        </li>
-        <li>
-          Come back and tap <b>Check</b>.
-        </li>
-      </ol>
-      <ul className="list">
-        {rows.map((r) => (
-          <li key={r.room}>
-            <Icon name={r.favorite ? "check" : "speaker"} />
-            <span className="grow">
-              <b>{r.room}</b>
-              <small>{r.favorite ? "Ready" : "Needs " + sp.roomPlaylistName(r.room) + " in My Sonos"}</small>
-            </span>
-          </li>
-        ))}
-      </ul>
-      <div className="set-actions">
-        <button
-          className="btn gold sm"
-          disabled={busy || !h.primary}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              h.a.notify(await h.a.setupRoomPlaylists());
-            } catch (e) {
-              h.a.notify(errorText(e), "err");
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? <Spinner /> : <Icon name="plus" />}
-          Make room playlists
-        </button>
-        <button
-          className="btn sm"
-          disabled={checking}
-          onClick={async () => {
-            setChecking(true);
-            try {
-              await h.a.loadFavorites(true);
-            } catch (e) {
-              h.a.notify(errorText(e), "err");
-            } finally {
-              setChecking(false);
-            }
-          }}
-        >
-          {checking ? <Spinner /> : <Icon name="refresh" />}
-          Check
-        </button>
-      </div>
+      {ready || hubOk ? (
+        <p className="set-note">
+          Search anything in Music and send it to any room. The app refills the Compass Classics playlist and starts it on Sonos.
+        </p>
+      ) : (
+        <>
+          <p className="set-note">
+            Sonos only lets apps start its favorites. So the app keeps one Spotify playlist, refills it with whatever you pick, and
+            starts it in the room you choose.
+          </p>
+          <SonosSetupSteps />
+        </>
+      )}
     </section>
   );
 }
@@ -654,7 +601,7 @@ function ScenesSection() {
   const [list, setList] = useState<Scene[]>(h.liveScenes);
   const [dirty, setDirty] = useState(false);
   const names = h.rooms.map((r) => r.name);
-  const favs = (h.favorites ?? []).filter((f) => !f.name.startsWith(sp.ROOM_PLAYLIST_PREFIX));
+  const favs = (h.favorites ?? []).filter((f) => !f.name.startsWith(sp.SONOS_PLAYLIST));
   useEffect(() => {
     void h.a.loadFavorites().catch(() => {});
   }, [h.a]);

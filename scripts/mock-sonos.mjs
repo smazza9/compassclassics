@@ -25,7 +25,6 @@ const favorites = [
   { id: "3", name: "Garage Rock", description: "Spotify playlist", service: { name: "Spotify", id: "12" }, tracks: [["Thunderstruck", "AC/DC", 292000], ["Sharp Dressed Man", "ZZ Top", 255000]] },
   { id: "4", name: "Carolina Beach Music", description: "Spotify playlist", service: { name: "Spotify", id: "12" }, tracks: [["I Love Beach Music", "The Embers", 190000], ["Carolina Girls", "Chairmen of the Board", 220000]] },
   { id: "5", name: "Classic Rock Radio", description: "Sonos Radio", service: { name: "Sonos Radio", id: "303" }, live: true, tracks: [["Classic Rock Radio", "", 0]] },
-  { id: "6", name: "Compass Classics · Patio", description: "Spotify playlist", service: { name: "Spotify", id: "12" }, tracks: [["Hotel California", "Eagles", 390000]] },
 ].map((f) => ({ ...f, imageUrl: art(f.name) }));
 
 let gid = 100;
@@ -84,6 +83,12 @@ function track(f, i) {
 }
 
 const routes = [
+  // Test helper: pretend someone added a favorite in the Sonos app.
+  ["POST", /^\/test\/favorite$/, (m, b) => {
+    const id = String(favorites.length + 1);
+    favorites.push({ id, name: b.name, description: "Spotify playlist", service: { name: "Spotify", id: "12" }, imageUrl: art(b.name), tracks: [["Hotel California", "Eagles", 390000]] });
+    return { id };
+  }],
   ["GET", /^\/households$/, () => ({ households: [{ id: HH, name: "Mock House" }] })],
   ["GET", /^\/households\/[^/]+\/groups$/, () => ({ groups: groups.map(publicGroup), players })],
   ["GET", /^\/groups\/([^/]+)\/playback$/, (m) => {

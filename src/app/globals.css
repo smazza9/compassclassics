@@ -1904,6 +1904,11 @@ input[type="range"].center::-webkit-slider-runnable-track {
   font-weight: 700;
   box-shadow: 0 14px 30px -14px rgba(253, 212, 49, 0.75);
 }
+.primary svg {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+}
 .primary:disabled {
   opacity: 0.4;
   box-shadow: none;
@@ -2185,6 +2190,15 @@ input[type="range"].center::-webkit-slider-runnable-track {
 .made .mark {
   width: 34px;
   height: 34px;
+}
+.setup .steps {
+  margin-top: 4px;
+}
+.setup .steps li {
+  margin-bottom: 8px;
+}
+.setup .steps .btn {
+  margin-bottom: 4px;
 }
 .bt-guide {
   margin-top: 12px;

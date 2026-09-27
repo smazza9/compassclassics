@@ -365,7 +365,7 @@ function Browse({ play, open }: { play: (i: PlayItem) => void; open: (d: Drill) 
     if (!acct) return;
     let dead = false;
     sp.myPlaylists(acct)
-      .then((l) => !dead && setMine(l.filter((p) => !p.name.startsWith(sp.ROOM_PLAYLIST_PREFIX))))
+      .then((l) => !dead && setMine(l.filter((p) => !p.name.startsWith(sp.SONOS_PLAYLIST))))
       .catch(() => !dead && setMine([]));
     sp.recentlyPlayed(acct)
       .then((l) => !dead && setRecent(l))
@@ -398,7 +398,7 @@ function Browse({ play, open }: { play: (i: PlayItem) => void; open: (d: Drill) 
           ) : h.favorites.length ? (
             <div className="grid">
               {h.favorites
-                .filter((f) => !f.name.startsWith(sp.ROOM_PLAYLIST_PREFIX))
+                .filter((f) => !f.name.startsWith(sp.SONOS_PLAYLIST))
                 .map((f) => (
                   <button
                     key={f.id}
