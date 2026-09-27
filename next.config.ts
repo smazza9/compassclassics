@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The build the browser is running, so an open app can tell a newer one shipped.
+  env: {
+    NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA || "dev",
+  },
   // Pin the workspace root to this project. Without it, Next sees the stray
   // package-lock.json in the home directory and guesses the wrong root.
   turbopack: {

@@ -592,8 +592,13 @@ export async function findPlaylistByName(acct: SpotifyAccount, name: string): Pr
   return list.find((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase() && p.owner?.id === acct.id) ?? null;
 }
 
-export async function createPlaylist(acct: SpotifyAccount, name: string, description: string): Promise<SpPlaylist> {
-  const body = { name, description, public: false };
+/** Make a playlist public, so Sonos search can find it and any Spotify account can play it. */
+export async function makePublic(acct: SpotifyAccount, id: string) {
+  await sp(acct, "/playlists/" + id, { method: "PUT", body: { public: true } });
+}
+
+export async function createPlaylist(acct: SpotifyAccount, name: string, description: string, isPublic = false): Promise<SpPlaylist> {
+  const body = { name, description, public: isPublic };
   try {
     return await sp<SpPlaylist>(acct, "/me/playlists", { method: "POST", body });
   } catch (e) {

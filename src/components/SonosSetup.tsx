@@ -83,7 +83,8 @@ export function SonosSetupSteps({ seed, onReady, readyLabel = "Check" }: { seed?
     <div className="setup">
       <ol className="steps">
         <li>
-          Open the <b>Sonos app</b>, then <b>Spotify</b>, <b>Your Library</b>, <b>Playlists</b>, and open <b>Compass Classics</b>
+          In the <b>Sonos app</b>, tap <b>Search</b> and type <b>Compass Classics</b>. Open the one with the <b>Spotify logo</b> (not
+          &ldquo;Sonos Playlist&rdquo;). If search doesn&apos;t show it yet: Browse, Spotify, Your Library, Playlists, <b>Compass Classics</b>
           {prep === "making" ? (
             <>
               {" "}

@@ -927,11 +927,12 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       let id = await roomPlaylistId(acct, sp.SONOS_PLAYLIST);
       let made = false;
       if (!id) {
-        const p = await sp.createPlaylist(acct, sp.SONOS_PLAYLIST, "Compass Classics refills this playlist to send music to Sonos. Keep it in your library and in Sonos favorites.");
+        const p = await sp.createPlaylist(acct, sp.SONOS_PLAYLIST, "Compass Classics refills this playlist to send music to Sonos. Keep it in your library and in Sonos favorites.", true);
         id = p.id;
         playlistIds.set(acct.id + "|" + sp.SONOS_PLAYLIST, id);
         made = true;
       }
+      if (!made) await sp.makePublic(acct, id).catch(() => {});
       if (uris.length) await sp.replacePlaylist(acct, id, uris).catch(() => {});
       return made ? "Made the Compass Classics playlist in " + acct.name + "'s Spotify." : "The Compass Classics playlist is ready in " + acct.name + "'s Spotify.";
     };
