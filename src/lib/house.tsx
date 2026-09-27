@@ -87,7 +87,7 @@ export interface Actions {
   saveLiveScenes(list: Scene[] | null): void;
   toggleShuffle(zoneKey: string): void;
   refreshSonos(): Promise<void>;
-  loadFavorites(force?: boolean): Promise<SonosFavorite[]>;
+  loadFavorites(force?: boolean, favoritesOnly?: boolean): Promise<SonosFavorite[]>;
   unlinkSonos(): Promise<void>;
   refreshSpotify(withDevices?: boolean): Promise<{ found: SpDevice[]; errors: string[] }>;
   enableBrowserPlayer(): Promise<void>;
@@ -217,25 +217,71 @@ export function HouseProvider({ children }: { children: ReactNode }) {
 
   const sonosBusy = useRef(false);
   const lastSaved = useRef(0);
-  const pollSonos = useCallback(async () => {
+  const pollCount = useRef(0);
+  const sonosFails = useRef(0);
+  const authFails = useRef(0);
+  const quietUntil = useRef(0);
+  const freshHousehold = useRef(false);
+  const pollSonos = useCallback(async (force = false) => {
     if (sonosBusy.current) return;
+    // Sonos asked us to slow down: skip regular polls for a bit.
+    if (!force && Date.now() < quietUntil.current) return;
     sonosBusy.current = true;
     try {
-      const s = await sonos.snapshot(store.get<string | null>("cc.household", null) ?? undefined);
+      const prev = R.current.snap;
+      const n = pollCount.current++;
+      const hh = freshHousehold.current ? undefined : prev?.householdId;
+      freshHousehold.current = false;
+      const withVolumes = force || !prev || n % 3 === 0;
+      const s = await sonos.snapshot(hh, withVolumes);
       if (!s) {
-        setSnap(null);
-        store.del("cc.snap");
-        setConfig((c) => (c ? { ...c, sonosLinked: false } : c));
-      } else {
-        setSnap(s);
-        setSonosError(null);
-        if (Date.now() - lastSaved.current > 20000) {
-          lastSaved.current = Date.now();
-          store.set("cc.snap", s);
+        // Only a repeated "not signed in" means Sonos really unlinked.
+        authFails.current += 1;
+        if (authFails.current >= 2) {
+          setSnap(null);
+          store.del("cc.snap");
+          setConfig((c) => (c ? { ...c, sonosLinked: false } : c));
         }
+        return;
+      }
+      authFails.current = 0;
+      sonosFails.current = 0;
+      // Pieces Sonos didn't answer this time keep their last known value.
+      const keep = <T,>(next: Record<string, T | null>, old?: Record<string, T | null>) => {
+        const out: Record<string, T | null> = { ...next };
+        for (const k of Object.keys(out)) if (out[k] == null && old?.[k] != null) out[k] = old[k];
+        return out;
+      };
+      // Groups the server skipped this time (quiet ones) keep their last details too.
+      const ids = s.groups.map((g) => g.id);
+      const carry = <T,>(next: Record<string, T | null>, old?: Record<string, T | null>) => {
+        const out = keep(next, old);
+        for (const id of ids) if (!(id in out) && old?.[id] != null) out[id] = old[id];
+        return out;
+      };
+      const merged: SonosSnapshot = {
+        ...s,
+        playback: carry(s.playback, prev?.playback),
+        metadata: carry(s.metadata, prev?.metadata),
+        playerVolume: s.volumes ? keep(s.playerVolume, prev?.playerVolume) : { ...(prev?.playerVolume ?? {}) },
+        households: s.households?.length ? s.households : (prev?.households ?? []),
+      };
+      if (s.limited) quietUntil.current = Date.now() + 12000;
+      setSnap(merged);
+      setSonosError(null);
+      if (Date.now() - lastSaved.current > 20000) {
+        lastSaved.current = Date.now();
+        store.set("cc.snap", merged);
       }
     } catch (e) {
-      setSonosError(errorText(e));
+      sonosFails.current += 1;
+      const status = e instanceof sonos.SonosError ? e.status : 0;
+      if ((e as { staleHousehold?: boolean }).staleHousehold) freshHousehold.current = true;
+      if (status === 429 || status === 503) quietUntil.current = Date.now() + 15000;
+      // One hiccup is not worth a warning; a minute of them is.
+      if (sonosFails.current >= 4) {
+        setSonosError(status === 404 ? errorText(e) : "Sonos isn't answering right now. The app keeps trying.");
+      }
     } finally {
       sonosBusy.current = false;
     }
@@ -244,13 +290,13 @@ export function HouseProvider({ children }: { children: ReactNode }) {
   const kickTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const kickSonos = useCallback(() => {
     kickTimers.current.forEach(clearTimeout);
-    kickTimers.current = [600, 2200].map((ms) => setTimeout(pollSonos, ms));
+    kickTimers.current = [700, 2500].map((ms) => setTimeout(() => pollSonos(true), ms));
   }, [pollSonos]);
 
   useEffect(() => {
     if (!linked || !visible) return;
-    const t0 = setTimeout(pollSonos, 0);
-    const t = setInterval(pollSonos, 5000);
+    const t0 = setTimeout(() => pollSonos(true), 0);
+    const t = setInterval(() => pollSonos(false), 7000);
     return () => {
       clearTimeout(t0);
       clearInterval(t);
@@ -424,13 +470,16 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       return { id: ng.id, coordinatorId: ng.coordinatorId ?? ids[0] };
     };
 
-    const loadFavorites = async (force = false): Promise<SonosFavorite[]> => {
+    const loadFavorites = async (force = false, favoritesOnly = false): Promise<SonosFavorite[]> => {
       const s = R.current.snap;
       if (!s) return [];
       if (R.current.favorites && !force) return R.current.favorites;
-      const [f, p] = await Promise.all([sonos.favorites(s.householdId), sonos.playlists(s.householdId).catch(() => [])]);
+      const [f, p] = await Promise.all([
+        sonos.favorites(s.householdId),
+        favoritesOnly ? Promise.resolve(null) : sonos.playlists(s.householdId).catch(() => null),
+      ]);
       setFavorites(f);
-      setSonosPlaylists(p);
+      if (p) setSonosPlaylists(p);
       R.current.favorites = f;
       return f;
     };
@@ -824,7 +873,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
     };
 
     const refreshSonos = async () => {
-      await pollSonos();
+      await pollSonos(true);
     };
 
     const unlinkSonos = async () => {

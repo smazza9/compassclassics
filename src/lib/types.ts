@@ -156,6 +156,10 @@ export interface SonosSnapshot {
   metadata: Record<string, SonosMetadata | null>;
   playerVolume: Record<string, SonosVolume | null>;
   groupVolume: Record<string, SonosVolume | null>;
+  /** Volumes were fetched this time (they're only asked for every few polls). */
+  volumes?: boolean;
+  /** Sonos rate-limited part of this snapshot; back off for a bit. */
+  limited?: boolean;
   at: number;
 }
 

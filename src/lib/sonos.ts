@@ -35,11 +35,18 @@ async function call<T>(path: string, init: { method?: string; body?: unknown } =
   return j as T;
 }
 
-export async function snapshot(householdId?: string): Promise<SonosSnapshot | null> {
-  const res = await fetch("/api/sonos/state" + (householdId ? "?hh=" + encodeURIComponent(householdId) : ""), { cache: "no-store" });
+export async function snapshot(householdId?: string, withVolumes = true): Promise<SonosSnapshot | null> {
+  const q = new URLSearchParams();
+  if (householdId) q.set("hh", householdId);
+  if (withVolumes) q.set("vol", "1");
+  const res = await fetch("/api/sonos/state" + (q.size ? "?" + q.toString() : ""), { cache: "no-store" });
   if (res.status === 401) return null;
   const j = await res.json().catch(() => null);
-  if (!res.ok) throw new SonosError(res.status, (j && j.error) || "Could not reach Sonos (" + res.status + ")");
+  if (!res.ok) {
+    const err = new SonosError(res.status, (j && j.error) || "Could not reach Sonos (" + res.status + ")");
+    (err as SonosError & { staleHousehold?: boolean }).staleHousehold = !!(j && j.staleHousehold);
+    throw err;
+  }
   return j as SonosSnapshot;
 }
 

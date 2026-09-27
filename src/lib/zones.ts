@@ -40,7 +40,7 @@ export function sonosZones(snap: SonosSnapshot, hubRooms: HubRoom[]): Zone[] {
       if (!ids.length) return null;
       const pb = snap.playback[g.id];
       const md = snap.metadata[g.id];
-      const state = pb?.playbackState ?? g.playbackState ?? "";
+      const state = g.playbackState ?? pb?.playbackState ?? "";
       const tr = md?.currentItem?.track;
       const c = md?.container;
       const live = !tr?.durationMillis && (!!md?.streamInfo || /station|radio|stream/i.test(c?.type ?? ""));

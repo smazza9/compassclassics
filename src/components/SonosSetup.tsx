@@ -43,11 +43,17 @@ export function SonosSetupSteps({ seed, onReady, readyLabel = "Check" }: { seed?
   }, [a, seed]);
 
   // Watch Sonos favorites; the moment it's added, carry on by itself.
+  // Gently: every 10 seconds, favorites only, for five minutes at most.
   useEffect(() => {
+    let ticks = 0;
     const t = setInterval(async () => {
       if (done.current) return;
+      if (++ticks > 30) {
+        clearInterval(t);
+        return;
+      }
       try {
-        await a.loadFavorites(true);
+        await a.loadFavorites(true, true);
         if (a.sonosSetup().ready && !done.current) {
           done.current = true;
           if (readyRef.current) readyRef.current();
@@ -56,7 +62,7 @@ export function SonosSetupSteps({ seed, onReady, readyLabel = "Check" }: { seed?
       } catch {
         /* keep watching */
       }
-    }, 4000);
+    }, 10000);
     return () => clearInterval(t);
   }, [a]);
 

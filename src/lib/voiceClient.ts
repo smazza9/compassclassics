@@ -52,7 +52,21 @@ export class VoiceSession {
   private responseActive = false;
   private wantCreate = false;
   private queued: string[] = [];
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
   withMic = false;
+
+  /** After it answers, stay open briefly for a follow-up, then hang up so the
+   *  music playing in the room can't be mistaken for a request. */
+  private armIdle() {
+    this.clearIdle();
+    this.idleTimer = setTimeout(() => {
+      if (this.running === 0 && !this.responseActive) this.stop();
+    }, 20000);
+  }
+  private clearIdle() {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
+  }
 
   constructor(h: Hooks) {
     this.h = h;
@@ -143,6 +157,7 @@ export class VoiceSession {
       };
       dc.onopen = () => {
         this.setStatus("listening");
+        this.armIdle();
         const q = this.queued;
         this.queued = [];
         for (const t of q) this.sendText(t);
@@ -199,6 +214,7 @@ export class VoiceSession {
   }
 
   stop(final: VoiceStatus = "idle") {
+    this.clearIdle();
     try {
       this.dc?.close();
     } catch {
@@ -226,6 +242,7 @@ export class VoiceSession {
       if (!this.connected) void this.start(false);
       return;
     }
+    this.clearIdle();
     this.addTurn({ role: "user", text: t });
     if (this.responseActive) this.send({ type: "response.cancel" });
     this.send({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: t }] } });
@@ -289,6 +306,7 @@ export class VoiceSession {
   private onEvent(ev: Ev) {
     switch (ev.type) {
       case "input_audio_buffer.speech_started":
+        this.clearIdle();
         if (this.running === 0) this.setStatus("listening");
         break;
       case "conversation.item.input_audio_transcription.completed": {
@@ -333,6 +351,7 @@ export class VoiceSession {
         } else {
           if (this.running === 0) this.setStatus("listening");
           if (this.wantCreate) this.requestResponse();
+          else this.armIdle();
         }
         break;
       }

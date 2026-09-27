@@ -28,6 +28,8 @@ const favorites = [
 ].map((f) => ({ ...f, imageUrl: art(f.name) }));
 
 let gid = 100;
+const stats = { total: 0, limited: 0, byPath: {} };
+let limitMode = false;
 const newGroupId = (coord) => coord + ":" + ++gid;
 
 /** Each group: members, coordinator, what is playing. */
@@ -217,6 +219,23 @@ http
       b = body ? JSON.parse(body) : {};
     } catch {
       b = {};
+    }
+    // Test helpers: count requests, and pretend to be rate limited.
+    if (path === "/test/stats") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify(stats));
+    }
+    if (path === "/test/limit") {
+      limitMode = !!b.on;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ limitMode }));
+    }
+    stats.total += 1;
+    stats.byPath[path.replace(/RINCON_[A-Z0-9]+(:d+)?/g, ":id")] = (stats.byPath[path.replace(/RINCON_[A-Z0-9]+(:d+)?/g, ":id")] ?? 0) + 1;
+    if (limitMode && stats.total % 2 === 0) {
+      stats.limited += 1;
+      res.writeHead(429, { "Content-Type": "application/json", "Retry-After": "5" });
+      return res.end(JSON.stringify({ errorCode: "ERROR_RATE_LIMITED" }));
     }
     if (!/^Bearer mock-/.test(req.headers.authorization ?? "")) {
       res.writeHead(401, { "Content-Type": "application/json" });

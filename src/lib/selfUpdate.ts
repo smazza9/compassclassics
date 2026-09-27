@@ -4,11 +4,13 @@ import { useEffect } from "react";
 
 /*
  * Home screen apps on iPhone keep running the copy they opened with. When the
- * app comes back on screen, ask which build is live and reload if it's newer,
- * so every fix shows up without anyone force-closing the app.
+ * app comes back after being away for a while, ask which build is live and
+ * reload if it's newer. Never while it's in use: no reloads on focus changes,
+ * only after the app was in the background for at least 2 minutes.
  */
 
 const RUNNING = process.env.NEXT_PUBLIC_BUILD_ID || "dev";
+const AWAY_MS = 2 * 60 * 1000;
 
 async function liveBuild(): Promise<string | null> {
   try {
@@ -23,28 +25,18 @@ async function liveBuild(): Promise<string | null> {
 export function useSelfUpdate() {
   useEffect(() => {
     if (RUNNING === "dev") return;
-    let busy = false;
-    const check = async () => {
-      if (busy) return;
-      busy = true;
+    let hiddenAt = 0;
+    const onVisibility = async () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+        return;
+      }
+      if (!hiddenAt || Date.now() - hiddenAt < AWAY_MS) return;
+      hiddenAt = 0;
       const live = await liveBuild();
-      busy = false;
       if (live && live !== "dev" && live !== RUNNING) location.reload();
     };
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void check();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
-    window.addEventListener("pageshow", onVisible);
-    const first = setTimeout(check, 3000);
-    const every = setInterval(check, 5 * 60 * 1000);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
-      window.removeEventListener("pageshow", onVisible);
-      clearTimeout(first);
-      clearInterval(every);
-    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
 }
