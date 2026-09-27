@@ -69,6 +69,9 @@ export function SettingsView() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logo-720.webp" alt="Compass Classics" width={200} height={200} />
         <p>Made for Dad by Stephen</p>
+        <button className="btn sm gold" style={{ margin: "6px auto 10px" }} onClick={() => location.assign("/birthday")}>
+          Play the birthday reveal
+        </button>
         <small>Compass Classics · Happy birthday</small>
       </footer>
     </div>

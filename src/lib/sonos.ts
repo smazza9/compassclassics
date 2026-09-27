@@ -33,8 +33,10 @@ export function noteRateLimit(retryAfterSec = 0) {
   limitedUntil = Math.max(limitedUntil, Date.now() + wait * 1000);
 }
 export function noteSonosOk() {
+  // Sonos answered, so it's no longer asking us to wait.
   backoffSec = 0;
   resetsAt = 0;
+  limitedUntil = 0;
 }
 export const rateLimitedFor = () => Math.max(0, limitedUntil - Date.now());
 /** When the daily budget comes back (0 if it isn't used up). */
@@ -124,8 +126,13 @@ export async function createGroup(householdId: string, playerIds: string[], musi
   return j.group;
 }
 
+export interface GroupInfo {
+  id: string;
+  coordinatorId?: string;
+  playerIds?: string[];
+}
 export const modifyGroup = (groupId: string, add: string[], remove: string[]) =>
-  call<{ group: { id: string } }>("groups/" + groupId + "/groups/modifyGroupMembers", {
+  call<{ group: GroupInfo }>("groups/" + groupId + "/groups/modifyGroupMembers", {
     method: "POST",
     body: { playerIdsToAdd: add, playerIdsToRemove: remove },
   });

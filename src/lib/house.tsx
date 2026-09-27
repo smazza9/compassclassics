@@ -231,8 +231,9 @@ export function HouseProvider({ children }: { children: ReactNode }) {
   const lastPollAt = useRef(0);
   const pollSonos = useCallback(async (force = false) => {
     if (sonosBusy.current) return;
-    // Sonos asked us to slow down: nothing asks it anything until the wait is over.
-    if (sonos.rateLimitedFor() > 0) return;
+    // Sonos asked us to slow down: regular polls wait it out. A kick right
+    // after a tap still goes, since that tap just got an answer.
+    if (!force && sonos.rateLimitedFor() > 0) return;
     if (!force && Date.now() < quietUntil.current) return;
     sonosBusy.current = true;
     try {
@@ -270,11 +271,17 @@ export function HouseProvider({ children }: { children: ReactNode }) {
         for (const k of Object.keys(out)) if (out[k] == null && old?.[k] != null) out[k] = old[k];
         return out;
       };
-      // Groups the server skipped this time (quiet ones) keep their last details too.
-      const ids = s.groups.map((g) => g.id);
+      // Groups the server skipped this time (quiet ones) keep their last details
+      // too. A group gets a new id when rooms join or leave, so match by the
+      // room that leads it; otherwise a paused song would blink away.
+      const prevByCoord = new Map((prev?.groups ?? []).map((g) => [g.coordinatorId, g.id]));
       const carry = <T,>(next: Record<string, T | null>, old?: Record<string, T | null>) => {
         const out = keep(next, old);
-        for (const id of ids) if (!(id in out) && old?.[id] != null) out[id] = old[id];
+        for (const g of s.groups) {
+          if (out[g.id] != null) continue;
+          const oid = old?.[g.id] != null ? g.id : prevByCoord.get(g.coordinatorId);
+          if (oid && old?.[oid] != null) out[g.id] = old[oid];
+        }
         return out;
       };
       const merged: SonosSnapshot = {
@@ -837,21 +844,74 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       const want = [...new Set([lead, ...roomIds])];
       const add = want.filter((id) => !z.roomIds.includes(id));
       const remove = z.roomIds.filter((id) => id !== lead && !want.includes(id));
-      const names = want.map(roomName);
-      const everyRoom = want.length === R.current.rooms.length && want.length > 1;
-      const msg = want.length === 1 ? roomName(lead) + " is on its own." : everyRoom ? "Every room is playing together." : listWords(names) + " are playing together.";
-      if (!add.length && !remove.length) return msg;
+      const said = (got: string[]) => {
+        const everyRoom = got.length === R.current.rooms.length && got.length > 1;
+        return got.length === 1 ? roomName(lead) + " is on its own." : everyRoom ? "Every room is playing together." : listWords(got.map(roomName)) + " are playing together.";
+      };
+      if (!add.length && !remove.length) return said(want);
       if (z.kind === "demo") {
         setDemo((d) => {
           let s = d;
           for (const id of [...add, ...remove]) s = D.demoToggleMember(s, z.id, id).state;
           return s;
         });
-        return msg;
+        return said(want);
       }
-      await sonos.modifyGroup(z.id, add, remove);
+      let res: { group: sonos.GroupInfo };
+      let oldId = z.id;
+      try {
+        res = await sonos.modifyGroup(z.id, add, remove);
+      } catch (e) {
+        // Someone regrouped from the Sonos app since our last look: find the
+        // lead room's group again and try once more.
+        const moved = e instanceof sonos.SonosError && (e.errorCode === "ERROR_GROUP_CHANGED" || e.status === 404 || e.status === 410);
+        if (!moved) throw e;
+        const fresh = await sonos.snapshot(R.current.snap?.householdId, false, false).catch(() => null);
+        const g2 = fresh?.groups.find((g) => g.playerIds.includes(lead));
+        if (!g2) throw e;
+        oldId = g2.id;
+        res = await sonos.modifyGroup(
+          g2.id,
+          want.filter((id) => !g2.playerIds.includes(id)),
+          g2.playerIds.filter((id) => id !== lead && !want.includes(id)),
+        );
+      }
+      applyGroup(oldId, res.group);
       kickSonos();
-      return msg;
+      // Sonos says which rooms actually ended up in the group; a sleeping speaker may be left out.
+      return said(res.group.playerIds?.length ? res.group.playerIds : want);
+    };
+
+    /**
+     * Show a group change right away instead of waiting for the next poll:
+     * the new group replaces the old one, rooms it took from other groups
+     * leave them, and what the lead room was playing carries over.
+     */
+    const applyGroup = (oldId: string, g: sonos.GroupInfo) => {
+      const ids = g.playerIds ?? [];
+      if (!ids.length) return;
+      setSnap((prev) => {
+        if (!prev) return prev;
+        const old = prev.groups.find((x) => x.id === oldId);
+        const groups = prev.groups
+          .filter((x) => x.id !== oldId)
+          .map((x) => ({ ...x, playerIds: x.playerIds.filter((p) => !ids.includes(p)) }))
+          .filter((x) => x.playerIds.length)
+          .map((x) => (x.playerIds.includes(x.coordinatorId) ? x : { ...x, coordinatorId: x.playerIds[0] }));
+        // Rooms that left go quiet on their own until the next poll names their new group.
+        for (const p of (old?.playerIds ?? []).filter((p) => !ids.includes(p))) {
+          if (!groups.some((x) => x.playerIds.includes(p))) {
+            groups.push({ id: p + ":solo", name: roomName(p), coordinatorId: p, playerIds: [p], playbackState: "PLAYBACK_STATE_IDLE" });
+          }
+        }
+        groups.push({ id: g.id, name: old?.name ?? roomName(ids[0]), coordinatorId: g.coordinatorId ?? ids[0], playerIds: ids, playbackState: old?.playbackState });
+        return {
+          ...prev,
+          groups,
+          playback: { ...prev.playback, [g.id]: prev.playback[g.id] ?? prev.playback[oldId] ?? null },
+          metadata: { ...prev.metadata, [g.id]: prev.metadata[g.id] ?? prev.metadata[oldId] ?? null },
+        };
+      });
     };
 
     const allOff = async () => {

@@ -151,7 +151,17 @@ function Body({ zoneKey, onClose }: { zoneKey: string; onClose: () => void }) {
                   </span>
                 ) : null}
               </b>
-              <small>{isLead ? "Keeps what it's playing" : on && !zone.roomIds.includes(r.id) ? "Will join in sync" : !on && zone.roomIds.includes(r.id) ? "Gets its own music back" : r.status}</small>
+              <small>
+                {isLead
+                  ? "Keeps what it's playing"
+                  : on && !zone.roomIds.includes(r.id)
+                    ? "Will join in sync"
+                    : !on && zone.roomIds.includes(r.id)
+                      ? zone.kind === "demo"
+                        ? "Gets its own music back"
+                        : "Leaves the group and goes quiet"
+                      : r.status}
+              </small>
             </span>
             <span className="box">
               <Icon name="check" />
@@ -166,7 +176,7 @@ function Body({ zoneKey, onClose }: { zoneKey: string; onClose: () => void }) {
         {busy ? <Spinner /> : <Icon name="link" />}
         {busy ? "Grouping…" : label}
       </button>
-      <p className="s-note">Rooms you tick play the same song in sync with {leadName}. Everything else keeps its own music.</p>
+      <p className="s-note">Rooms you tick play the same song in sync with {leadName}. Untick one and it leaves the group. Other rooms aren&apos;t touched.</p>
     </>
   );
 }
