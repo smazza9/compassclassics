@@ -92,6 +92,21 @@ export function ZoneCard({ zone }: { zone: Zone }) {
           ))}
         </div>
       ) : null}
+
+      {zone.kind !== "spotify" ? (
+        <div className="room-actions">
+          <button className={cx("chip-btn", !grouped && "gold")} onClick={() => ui.groupFor(zone.key)} aria-label={"Add rooms to " + zone.name}>
+            <Icon name="plus" />
+            {grouped ? "Change rooms" : "Add rooms"}
+          </button>
+          {zone.playing || t ? (
+            <button className="chip-btn" onClick={() => ui.pickFor(zone.roomIds)} aria-label={"Pick different music for " + zone.name}>
+              <Icon name="music" />
+              Different music
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </article>
   );
 }

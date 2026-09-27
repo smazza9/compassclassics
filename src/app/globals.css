@@ -1012,6 +1012,24 @@ input[type="range"].center::-webkit-slider-runnable-track {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* "Add rooms" and friends under each card: the one-tap way to play in sync. */
+.room-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.room-actions .chip-btn {
+  margin-left: 0;
+  height: 32px;
+}
+.chip-btn.gold {
+  border-color: rgba(253, 212, 49, 0.45);
+  color: var(--y);
+}
+.chip-btn.gold svg {
+  color: var(--y);
+}
 
 /* ---------- Music ---------- */
 

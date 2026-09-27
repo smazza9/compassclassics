@@ -81,6 +81,8 @@ export interface Actions {
   leave(roomId: string): Promise<void>;
   split(zoneKey: string): Promise<void>;
   groupRooms(roomIds: string[]): Promise<string>;
+  /** Set exactly which rooms play along with this zone's lead room, in one go. */
+  setGroup(zoneKey: string, roomIds: string[]): Promise<string>;
   allOff(): Promise<void>;
   play(item: PlayItem, roomIds: string[]): Promise<string>;
   runScene(id: string): Promise<string>;
@@ -823,6 +825,35 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       return listWords(ids.map(roomName)) + " are playing together.";
     };
 
+    /**
+     * "Add rooms" from a card: the lead room keeps what it's playing, the
+     * rooms picked join it, and the rest go back to their own music. One
+     * Sonos call, however many rooms change.
+     */
+    const setGroup = async (key: string, roomIds: string[]): Promise<string> => {
+      const z = zone(key);
+      if (!z || z.kind === "spotify") throw new Error("Only Sonos rooms can play together.");
+      const lead = z.roomIds[0];
+      const want = [...new Set([lead, ...roomIds])];
+      const add = want.filter((id) => !z.roomIds.includes(id));
+      const remove = z.roomIds.filter((id) => id !== lead && !want.includes(id));
+      const names = want.map(roomName);
+      const everyRoom = want.length === R.current.rooms.length && want.length > 1;
+      const msg = want.length === 1 ? roomName(lead) + " is on its own." : everyRoom ? "Every room is playing together." : listWords(names) + " are playing together.";
+      if (!add.length && !remove.length) return msg;
+      if (z.kind === "demo") {
+        setDemo((d) => {
+          let s = d;
+          for (const id of [...add, ...remove]) s = D.demoToggleMember(s, z.id, id).state;
+          return s;
+        });
+        return msg;
+      }
+      await sonos.modifyGroup(z.id, add, remove);
+      kickSonos();
+      return msg;
+    };
+
     const allOff = async () => {
       if (!R.current.live) setDemo((d) => D.demoAllOff(d));
       const jobs: Promise<unknown>[] = [];
@@ -1072,6 +1103,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       leave,
       split,
       groupRooms,
+      setGroup,
       allOff,
       play,
       runScene,

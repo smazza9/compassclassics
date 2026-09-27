@@ -9,6 +9,7 @@ import { AssistantPanel, queueAsk } from "./AssistantPanel";
 import { HomeView } from "./HomeView";
 import { Icon, Needle } from "./Icons";
 import { MusicView } from "./MusicView";
+import { GroupSheet } from "./GroupSheet";
 import { PlayOnSheet } from "./PlayOnSheet";
 import { RoomDetail } from "./RoomDetail";
 import { SettingsView } from "./SettingsView";
@@ -38,6 +39,8 @@ export function Shell() {
   });
   const [detail, setDetail] = useState<string | null>(null);
   const [sheet, setSheet] = useState<{ item: PlayItem; rooms: string[] } | null>(null);
+  // Lead room of the card whose "Add rooms" sheet is open.
+  const [grouping, setGrouping] = useState<string | null>(null);
   const [pick, setPick] = useState<string[] | null>(null);
   const [target, setTargetState] = useState<string[]>(() => {
     try {
@@ -77,11 +80,12 @@ export function Shell() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (sheet) setSheet(null);
+      else if (grouping) setGrouping(null);
       else if (detail) setDetail(null);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [sheet, detail]);
+  }, [sheet, grouping, detail]);
 
   const ui = useMemo<UI>(
     () => ({
@@ -97,6 +101,10 @@ export function Shell() {
       },
       closeDetail: () => setDetail(null),
       openSheet: (item, rooms = []) => setSheet({ item, rooms }),
+      groupFor: (k) => {
+        const z = zonesRef.current.find((x) => x.key === k);
+        if (z && z.kind !== "spotify") setGrouping(z.roomIds[0]);
+      },
       pick,
       target,
       setTarget,
@@ -210,6 +218,7 @@ export function Shell() {
         </nav>
 
         <RoomDetail roomId={detail} />
+        <GroupSheet roomId={grouping} onClose={() => setGrouping(null)} />
         <PlayOnSheet
           sheet={sheet}
           onClose={() => setSheet(null)}

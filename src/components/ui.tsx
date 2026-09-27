@@ -17,6 +17,8 @@ export interface UI {
   openDetail(zoneKey: string): void;
   closeDetail(): void;
   openSheet(item: PlayItem, rooms?: string[]): void;
+  /** "Add rooms" on a card: pick which rooms play along with it. */
+  groupFor(zoneKey: string): void;
   /** Rooms we're choosing music for ("Pick different music"). */
   pick: string[] | null;
   pickFor(rooms: string[] | null): void;
