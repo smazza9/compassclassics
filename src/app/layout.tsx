@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Compass Classics",
     description: "Every room, its own music.",
-    images: [{ url: "/brand/og.png", width: 1200, height: 630 }],
+    images: [{ url: "/brand/og.jpg", width: 1200, height: 630 }],
   },
 };
 

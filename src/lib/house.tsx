@@ -131,7 +131,8 @@ export function HouseProvider({ children }: { children: ReactNode }) {
 
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [demo, setDemo] = useState<D.DemoState>(D.initialDemo);
-  const [snap, setSnap] = useState<SonosSnapshot | null>(null);
+  // The last snapshot is cached so Dad's rooms appear instantly on open, then refresh.
+  const [snap, setSnap] = useState<SonosSnapshot | null>(() => store.get<SonosSnapshot | null>("cc.snap", null));
   const [sonosError, setSonosError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<SonosFavorite[] | null>(null);
   const [sonosPlaylists, setSonosPlaylists] = useState<SonosPlaylist[] | null>(null);
@@ -146,18 +147,20 @@ export function HouseProvider({ children }: { children: ReactNode }) {
   const [focusRoom, setFocusRoom] = useState<string | null>(null);
   const [savedScenes, setSavedScenes] = useState<Scene[] | null>(() => store.get<Scene[] | null>("cc.scenes", null));
 
-  const live = !!(config?.sonosLinked && snap);
+  // Before the config arrives, trust the cache: a cached snapshot means Sonos was linked.
+  const linked = config ? config.sonosLinked : !!snap;
+  const live = linked && !!snap;
 
   /* ---------- derived views ---------- */
 
   const zones = useMemo(() => {
-    const base = live && snap ? sonosZones(snap, hub.rooms) : D.demoZones(demo, 0);
+    const base = linked ? (snap ? sonosZones(snap, hub.rooms) : []) : D.demoZones(demo, 0);
     return base.map((z) => {
       const p = playOv[z.key];
       const members = z.members.map((m) => (volOv[m.roomId] !== undefined ? { ...m, volume: volOv[m.roomId] } : m));
       return p !== undefined || members.some((m, i) => m !== z.members[i]) ? { ...z, playing: p ?? z.playing, members } : z;
     });
-  }, [live, snap, hub.rooms, demo, playOv, volOv]);
+  }, [linked, snap, hub.rooms, demo, playOv, volOv]);
 
   const spZones = useMemo(() => {
     return spotifyZones(accounts, devices, spStates, browser).map((z) => {
@@ -168,7 +171,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
     });
   }, [accounts, devices, spStates, browser, playOv, volOv]);
 
-  const rooms = useMemo(() => (live && snap ? sonosRooms(snap, zones) : D.demoRooms(demo)), [live, snap, zones, demo]);
+  const rooms = useMemo(() => (linked ? (snap ? sonosRooms(snap, zones) : []) : D.demoRooms(demo)), [linked, snap, zones, demo]);
   const spRooms = useMemo(() => spotifyRooms(spZones), [spZones]);
 
   const liveScenes = useMemo(() => savedScenes ?? defaultScenes(rooms.map((r) => r.name)), [savedScenes, rooms]);
@@ -203,6 +206,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
   /* ---------- polling ---------- */
 
   const sonosBusy = useRef(false);
+  const lastSaved = useRef(0);
   const pollSonos = useCallback(async () => {
     if (sonosBusy.current) return;
     sonosBusy.current = true;
@@ -210,10 +214,15 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       const s = await sonos.snapshot(store.get<string | null>("cc.household", null) ?? undefined);
       if (!s) {
         setSnap(null);
+        store.del("cc.snap");
         setConfig((c) => (c ? { ...c, sonosLinked: false } : c));
       } else {
         setSnap(s);
         setSonosError(null);
+        if (Date.now() - lastSaved.current > 20000) {
+          lastSaved.current = Date.now();
+          store.set("cc.snap", s);
+        }
       }
     } catch (e) {
       setSonosError(errorText(e));
@@ -229,14 +238,14 @@ export function HouseProvider({ children }: { children: ReactNode }) {
   }, [pollSonos]);
 
   useEffect(() => {
-    if (!config?.sonosLinked || !visible) return;
+    if (!linked || !visible) return;
     const t0 = setTimeout(pollSonos, 0);
     const t = setInterval(pollSonos, 5000);
     return () => {
       clearTimeout(t0);
       clearInterval(t);
     };
-  }, [config?.sonosLinked, visible, pollSonos]);
+  }, [linked, visible, pollSonos]);
 
   const pollSpotify = useCallback(async (withDevices = false) => {
     const list = sp.getAccounts();
@@ -516,12 +525,17 @@ export function HouseProvider({ children }: { children: ReactNode }) {
         await playOnSonos(item, sonosIds);
         done.push(...sonosIds.map(roomName));
       }
+      const speakers: string[] = [];
       for (const id of spIds) {
         await playOnSpotifyDevice(item, id);
-        done.push(roomName(id));
+        speakers.push(roomName(id));
       }
       const all = R.current.rooms.length > 1 && R.current.rooms.every((r) => done.includes(r.name));
-      return item.title + " is playing " + (all ? "in every room" : listWords(done.map(whereOf))) + ".";
+      const where = [
+        ...(all ? ["in every room"] : done.map(whereOf)),
+        ...speakers.map((n) => (/^this device$/i.test(n) ? "on this device" : "on " + n)),
+      ];
+      return item.title + " is playing " + listWords(where) + ".";
     };
 
     const setPlaying = async (key: string, on: boolean) => {
@@ -772,6 +786,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
 
     const unlinkSonos = async () => {
       await sonos.unlink();
+      store.del("cc.snap");
       setSnap(null);
       setFavorites(null);
       setConfig((c) => (c ? { ...c, sonosLinked: false } : c));

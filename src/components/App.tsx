@@ -11,7 +11,7 @@ function Splash() {
   return (
     <div className="splash" aria-label="Compass Classics is starting">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/brand/mark-transparent.png" alt="" />
+      <img src="/brand/mark-256.webp" alt="" />
     </div>
   );
 }

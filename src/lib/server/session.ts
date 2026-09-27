@@ -10,7 +10,11 @@ import { hasSecret, seal, unseal } from "./seal";
 
 export const SONOS_COOKIE = "cc_sonos";
 export const MEMBER_COOKIE = "cc_member";
-export const SONOS_API = "https://api.ws.sonos.com/control/api/v1";
+// A local stand-in (scripts/mock-sonos.mjs) can replace the real API in development only.
+export const SONOS_API =
+  process.env.NODE_ENV !== "production" && process.env.SONOS_API_BASE
+    ? process.env.SONOS_API_BASE
+    : "https://api.ws.sonos.com/control/api/v1";
 const SONOS_TOKEN_URL = "https://api.sonos.com/login/v3/oauth/access";
 
 export interface SonosTokens {

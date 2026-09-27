@@ -1066,7 +1066,7 @@ function createApiServer({ hub, backend, opts, key }) {
         return sendJson(res, 500, { error: 'Something went wrong inside the hub' });
       })
       .finally(() => {
-        if (req.method !== 'OPTIONS' && !/^\/(ping)?$/.test(req.url || '')) {
+        if (req.method !== 'OPTIONS' && !/^\/(ping)?\/?(\?|$)/.test(req.url || '')) {
           log(`${req.method} ${req.url} -> ${res.statusCode} (${Date.now() - started} ms)`);
         }
       });
@@ -1105,7 +1105,8 @@ function startTunnel(port, host) {
     }
     let child;
     try {
-      child = spawn(candidates[i], ['tunnel', '--url', target], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+      // Shares the hub's console window, so closing that window stops the tunnel too.
+      child = spawn(candidates[i], ['tunnel', '--url', target], { stdio: ['ignore', 'pipe', 'pipe'] });
     } catch {
       tryCandidate(i + 1);
       return;
@@ -1116,7 +1117,8 @@ function startTunnel(port, host) {
     const onOutput = (chunk) => {
       if (announced) return;
       output = (output + chunk.toString()).slice(-8000);
-      const url = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i.exec(output)?.[0];
+      // (api.trycloudflare.com shows up in cloudflared's own error messages; skip it)
+      const url = /https:\/\/(?!api\.)[a-z0-9-]+\.trycloudflare\.com/i.exec(output)?.[0];
       if (!url) return;
       announced = true;
       console.log([
@@ -1222,6 +1224,7 @@ async function main() {
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
+  process.on('SIGHUP', shutdown); // Windows: the console window was closed
 }
 
 // A home hub should keep running through surprises; log them instead of crashing.

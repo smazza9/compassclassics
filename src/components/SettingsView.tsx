@@ -8,7 +8,7 @@ import { defaultScenes, type Scene } from "@/lib/scenes";
 import { errorText } from "@/lib/util";
 import { EqControls } from "./EqControls";
 import { Icon, deviceIcon } from "./Icons";
-import { Mark, Spinner } from "./ui";
+import { Spinner } from "./ui";
 
 function Status({ on, warn, label }: { on: boolean; warn?: boolean; label: string }) {
   return (
@@ -63,9 +63,11 @@ export function SettingsView() {
           <HomeScreenSection />
         </div>
       </div>
-      <footer className="made">
-        <Mark />
-        <span>Made for Dad by Stephen · Compass Classics</span>
+      <footer className="signature">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/logo-720.webp" alt="Compass Classics" width={200} height={200} />
+        <p>Made for Dad by Stephen</p>
+        <small>Compass Classics · Happy birthday</small>
       </footer>
     </div>
   );

@@ -36,7 +36,7 @@ export function Mark({ className }: { className?: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <Needle className={cx("mark", className)} />;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img className={cx("mark", className)} src="/brand/mark-transparent.png" alt="" onError={() => setFailed(true)} />;
+  return <img className={cx("mark", className)} src="/brand/mark-256.webp" alt="" onError={() => setFailed(true)} />;
 }
 
 export function Rose({ className }: { className?: string }) {
