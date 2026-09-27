@@ -2736,3 +2736,648 @@ input[type="range"].center::-webkit-slider-runnable-track {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ---------- Birthday reveal (/birthday) ---------- */
+.bday {
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(24px + var(--safe-t)) 20px calc(28px + var(--safe-b));
+  background: radial-gradient(120% 80% at 50% 0%, #243148, #141d2e 60%, #0b111c);
+  color: var(--fg1);
+  font-family: var(--sans);
+}
+@media (display-mode: standalone) {
+  .bday {
+    min-height: 100lvh;
+  }
+}
+.bday-rose {
+  position: absolute;
+  width: 140vmin;
+  height: 140vmin;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(232, 234, 237, 0.06);
+  pointer-events: none;
+  animation: bday-spin 120s linear infinite;
+}
+@keyframes bday-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+.bday-stage,
+.bday-card {
+  position: relative;
+  width: min(440px, 100%);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  animation: bday-in 0.6s var(--ease) both;
+}
+@keyframes bday-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.bday-eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--y);
+}
+.bday-title {
+  margin: 6px 0 8px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(64px, 18vw, 96px);
+  line-height: 0.9;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+.bday-title span {
+  color: var(--y);
+}
+.bday-title.sm {
+  font-size: clamp(44px, 12vw, 64px);
+}
+.bday-h {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.bday-p {
+  margin: 0;
+  max-width: 34ch;
+  color: var(--fg2);
+  font-size: 17px;
+  line-height: 1.5;
+}
+.bday-small {
+  margin: 0;
+  color: var(--fg3);
+  font-size: 13px;
+}
+.bday-go {
+  margin-top: 12px;
+  max-width: 320px;
+}
+.bday-mid {
+  max-width: 320px;
+}
+.bday-setup {
+  text-align: left;
+  align-items: stretch;
+}
+.bday-field {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--fg3);
+}
+.bday-field input {
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line2);
+  background: rgba(15, 20, 25, 0.35);
+  color: var(--fg1);
+  font-size: 16px;
+}
+/* The present */
+.bday-box {
+  position: relative;
+  width: 240px;
+  height: 260px;
+  margin: 18px auto 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.bday-box:disabled {
+  cursor: default;
+}
+.bday-body {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 0;
+  height: 150px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #2e3c56, #1b263b);
+  border: 1px solid var(--line2);
+  overflow: hidden;
+  transition: transform 0.5s var(--ease);
+}
+.bday-ribbon-v {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 16px);
+  width: 32px;
+  background: var(--y);
+}
+.bday-ribbon-h {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 40px;
+  height: 26px;
+  background: var(--y);
+  opacity: 0.9;
+}
+.bday-lid {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 140px;
+  height: 44px;
+  z-index: 3;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #3a4a66, #2e3c56);
+  border: 1px solid var(--line2);
+  transform-origin: 20% 100%;
+  transition: transform 0.7s var(--ease), opacity 0.7s;
+}
+.bday-lid::before {
+  content: "";
+  position: absolute;
+  left: calc(50% - 16px);
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  background: var(--y);
+}
+.bday-bow {
+  position: absolute;
+  left: 50%;
+  top: -30px;
+  width: 76px;
+  height: 44px;
+  transform: translateX(-50%);
+}
+.bday-bow::before,
+.bday-bow::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  width: 30px;
+  height: 30px;
+  border: 7px solid var(--y);
+  border-radius: 50% 50% 50% 4px;
+}
+.bday-bow::before {
+  left: 4px;
+  transform: rotate(-45deg);
+}
+.bday-bow::after {
+  right: 4px;
+  transform: rotate(45deg) scaleX(-1);
+}
+.bday-box:not(.open) .bday-lid {
+  animation: bday-wiggle 2.4s ease-in-out infinite;
+}
+@keyframes bday-wiggle {
+  0%,
+  80%,
+  100% {
+    transform: none;
+  }
+  85% {
+    transform: translateY(-4px) rotate(-2deg);
+  }
+  90% {
+    transform: translateY(0) rotate(2deg);
+  }
+  95% {
+    transform: translateY(-2px);
+  }
+}
+.bday-box.open .bday-lid {
+  transform: translate(-40px, -120px) rotate(-28deg);
+  opacity: 0;
+  animation: none;
+}
+.bday-box.open .bday-body {
+  transform: translateY(10px) scale(0.96);
+}
+.bday-gc {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  width: 200px;
+  height: 126px;
+  z-index: 2;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #232f3e, #131921);
+  border: 1px solid rgba(255, 153, 0, 0.5);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transform: translate(-50%, 0) scale(0.6);
+  transition: transform 0.8s var(--ease) 0.25s, opacity 0.4s 0.25s;
+}
+.bday-gc::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 14px;
+  height: 4px;
+  border-radius: 2px;
+  background: #ff9900;
+}
+.bday-box.open .bday-gc {
+  z-index: 4;
+  opacity: 1;
+  transform: translate(-50%, -150px) scale(1);
+}
+.bday-gc-brand {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.bday-gc-amt {
+  font-family: var(--display);
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--y);
+}
+.bday-gc-sub {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg3);
+}
+.bday-after {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  animation: bday-in 0.6s var(--ease) 0.5s both;
+}
+.bday-code {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(15, 20, 25, 0.45);
+  border: 1px solid var(--line2);
+}
+.bday-code span {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg3);
+}
+.bday-code b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 22px;
+  letter-spacing: 0.08em;
+  user-select: all;
+  -webkit-user-select: all;
+}
+.bday-code .chip-btn {
+  margin-left: 0;
+}
+.bday-confetti {
+  position: absolute;
+  top: -12px;
+  border-radius: 2px;
+  opacity: 0;
+  pointer-events: none;
+  animation: bday-fall linear forwards;
+}
+@keyframes bday-fall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(110vh) rotate(var(--rot));
+  }
+}
+.bday-logo {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--line2);
+  opacity: 0;
+  transform: scale(0.4) rotate(-90deg);
+  transition: transform 1s var(--ease), opacity 0.6s;
+}
+.bday-app.in .bday-logo {
+  opacity: 1;
+  transform: none;
+}
+.bday-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  text-align: left;
+  color: var(--fg2);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.bday-list li {
+  position: relative;
+  padding-left: 22px;
+}
+.bday-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--y);
+}
+.bday-list i {
+  color: var(--fg1);
+}
+/* The tour scenes */
+.bday-tour {
+  min-height: 70dvh;
+  justify-content: center;
+  cursor: pointer;
+}
+.tour-scene {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  animation: bday-in 0.5s var(--ease) both;
+}
+.tour-cards {
+  display: grid;
+  gap: 10px;
+  width: min(340px, 100%);
+}
+.tour-card {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 26px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(46, 60, 86, 0.9), rgba(27, 38, 59, 0.9));
+  border: 1px solid var(--line2);
+  box-shadow: 0 16px 30px -18px rgba(0, 0, 0, 0.8);
+  text-align: left;
+  animation: tour-slide 0.55s var(--ease) both;
+}
+@keyframes tour-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.tour-card.wide {
+  grid-template-columns: minmax(0, 1fr) 26px;
+  animation: tour-merge 0.8s var(--ease) both;
+}
+.tour-card.wide .tc-room {
+  grid-column: 1 / -1;
+}
+@keyframes tour-merge {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.4);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+.tc-room {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.tc-song {
+  display: grid;
+  min-width: 0;
+}
+.tc-song b {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tc-song small {
+  font-size: 12px;
+  color: var(--fg3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tc-eq {
+  color: var(--y);
+  display: grid;
+  place-items: center;
+}
+.tc-eq svg {
+  width: 20px;
+  height: 20px;
+}
+.tour-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(340px, 100%);
+  height: 50px;
+  padding: 0 16px;
+  border-radius: 16px;
+  background: rgba(15, 20, 25, 0.45);
+  border: 1px solid var(--line2);
+  font-size: 17px;
+  text-align: left;
+}
+.tour-search svg {
+  width: 20px;
+  height: 20px;
+  color: var(--fg3);
+}
+.tour-search .caret {
+  display: inline-block;
+  width: 2px;
+  height: 20px;
+  margin-left: 2px;
+  vertical-align: -4px;
+  background: var(--y);
+  animation: tour-blink 1s steps(2) infinite;
+}
+@keyframes tour-blink {
+  to {
+    opacity: 0;
+  }
+}
+.tour-card.result {
+  width: min(340px, 100%);
+  grid-template-columns: minmax(0, 1fr) 44px;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: none;
+  transition: opacity 0.4s, transform 0.4s var(--ease);
+}
+.tour-card.result.in {
+  opacity: 1;
+  transform: none;
+}
+.tc-play {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--y);
+  color: var(--ink);
+  animation: tour-pulse 1.4s ease-in-out infinite;
+}
+.tc-play svg {
+  width: 22px;
+  height: 22px;
+}
+@keyframes tour-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(253, 212, 49, 0.55);
+  }
+  60% {
+    box-shadow: 0 0 0 14px rgba(253, 212, 49, 0);
+  }
+}
+.tour-mic {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--y);
+  color: var(--ink);
+  margin: 6px 0;
+}
+.tour-mic svg {
+  width: 40px;
+  height: 40px;
+  position: relative;
+}
+.tour-mic i {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(253, 212, 49, 0.6);
+  animation: tour-ring 2s ease-out infinite;
+}
+.tour-mic i + i {
+  animation-delay: 1s;
+}
+@keyframes tour-ring {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+.tour-said {
+  margin: 0;
+  min-height: 2.6em;
+  max-width: 30ch;
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.tour-said span {
+  display: inline-block;
+  animation: bday-in 0.3s var(--ease) both;
+}
+.tour-reply {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: var(--y-tint);
+  border: 1px solid rgba(253, 212, 49, 0.35);
+  color: var(--y);
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.4s, transform 0.4s var(--ease);
+}
+.tour-reply.in {
+  opacity: 1;
+  transform: none;
+}
+.tour-reply svg {
+  width: 16px;
+  height: 16px;
+}
+.bday-dots {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.bday-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fg4);
+  transition: background 0.3s, transform 0.3s;
+}
+.bday-dots i.on {
+  background: var(--y);
+  transform: scale(1.3);
+}
+.bday-dots i.done {
+  background: var(--y-deep);
+}
+.tour-said span {
+  margin-right: 0.3em;
+}
+.bday-box.open .bday-ribbon-v,
+.bday-box.open .bday-ribbon-h {
+  opacity: 0.3;
+  transition: opacity 0.6s;
+}
