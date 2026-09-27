@@ -989,6 +989,28 @@ export function HouseProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(t);
   }, [a]);
 
+  // Once Sonos is live, know the favorites, and have the app's playlist ready in
+  // Spotify before anyone asks, so the one-time Sonos step is the only step.
+  const autoPrep = useRef(false);
+  useEffect(() => {
+    if (!live) return;
+    if (favorites === null) {
+      const t = setTimeout(() => {
+        void a.loadFavorites().catch(() => {});
+      }, 800);
+      return () => clearTimeout(t);
+    }
+    if (autoPrep.current || !accounts.length) return;
+    if (favorites.some((f) => norm(f.name).startsWith(norm(sp.SONOS_PLAYLIST)))) return;
+    autoPrep.current = true;
+    const t = setTimeout(() => {
+      a.setupSonosPlaylist().catch(() => {
+        autoPrep.current = false;
+      });
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [live, favorites, accounts.length, a]);
+
   const value: House = {
     config,
     live,
