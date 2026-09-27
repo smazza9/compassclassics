@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { PlayItem, RoomRef } from "@/lib/types";
 import { NeedsSonosSetup, useHouse, whereOf } from "@/lib/house";
 import { DEMO_FAV } from "@/lib/demo";
@@ -27,10 +27,54 @@ export function PlayOnSheet({
   onPlayed?: () => void;
 }) {
   const open = !!sheet;
+  const ref = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ y0: number; dy: number } | null>(null);
+
+  // Swipe down to close, like any phone sheet. From the handle or the top of
+  // the list; further down, a swipe scrolls the list instead.
+  const onTouchStart = (e: React.TouchEvent) => {
+    const el = ref.current;
+    if (!el) return;
+    const onHandle = !!(e.target as HTMLElement).closest(".grab, .s-head, .sheet-x");
+    if (el.scrollTop > 0 && !onHandle) return;
+    drag.current = { y0: e.touches[0].clientY, dy: 0 };
+    el.style.transition = "none";
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const d = drag.current;
+    const el = ref.current;
+    if (!d || !el) return;
+    d.dy = Math.max(0, e.touches[0].clientY - d.y0);
+    el.style.transform = d.dy ? "translateY(" + d.dy + "px)" : "";
+  };
+  const onTouchEnd = () => {
+    const d = drag.current;
+    const el = ref.current;
+    drag.current = null;
+    if (!el) return;
+    el.style.transition = "";
+    el.style.transform = "";
+    if (d && d.dy > 80) onClose();
+  };
+
   return (
     <div className={cx("sheet-wrap", open && "open")} onClick={onClose} inert={!open} aria-hidden={!open}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Choose rooms">
+      <div
+        className="sheet"
+        ref={ref}
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Choose rooms"
+      >
         <div className="grab" aria-hidden="true" />
+        <button className="icon-btn sm sheet-x" onClick={onClose} aria-label="Close">
+          <Icon name="close" />
+        </button>
         {sheet ? (
           <SheetBody
             key={sheet.item.title + sheet.rooms.join()}

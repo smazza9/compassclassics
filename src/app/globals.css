@@ -1758,6 +1758,19 @@ input[type="range"].center::-webkit-slider-runnable-track {
 .sheet-wrap.open .sheet {
   transform: none;
 }
+.sheet {
+  position: relative;
+  overscroll-behavior: contain;
+}
+.sheet-x {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 2;
+}
+.sheet .s-head {
+  padding-right: 44px;
+}
 @media (min-width: 820px) {
   .sheet-wrap {
     justify-content: center;
