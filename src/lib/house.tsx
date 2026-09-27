@@ -143,8 +143,11 @@ export function HouseProvider({ children }: { children: ReactNode }) {
   // The last snapshot is cached so Dad's rooms appear instantly on open, then refresh.
   const [snap, setSnap] = useState<SonosSnapshot | null>(() => store.get<SonosSnapshot | null>("cc.snap", null));
   const [sonosError, setSonosError] = useState<string | null>(null);
-  const [favorites, setFavorites] = useState<SonosFavorite[] | null>(null);
-  const [sonosPlaylists, setSonosPlaylists] = useState<SonosPlaylist[] | null>(null);
+  // Favorites barely change, so they're kept between visits instead of asked for on every open.
+  type FavCache = { at: number; f: SonosFavorite[]; p: SonosPlaylist[] | null };
+  const favCache = useRef<FavCache | null>(null);
+  const [favorites, setFavorites] = useState<SonosFavorite[] | null>(() => store.get<FavCache | null>("cc.favs", null)?.f ?? null);
+  const [sonosPlaylists, setSonosPlaylists] = useState<SonosPlaylist[] | null>(() => store.get<FavCache | null>("cc.favs", null)?.p ?? null);
   const [devices, setDevices] = useState<Record<string, SpDevice[]>>({});
   const [spPlaylists, setSpPlaylists] = useState<sp.SpPlaylist[] | null>(null);
   const [spStates, setSpStates] = useState<Record<string, { s: SpPlayerState | null; at: number }>>({});
@@ -222,18 +225,26 @@ export function HouseProvider({ children }: { children: ReactNode }) {
   const authFails = useRef(0);
   const quietUntil = useRef(0);
   const freshHousehold = useRef(false);
+  const hasVolumes = useRef(false);
   const pollSonos = useCallback(async (force = false) => {
     if (sonosBusy.current) return;
-    // Sonos asked us to slow down: skip regular polls for a bit.
+    // Sonos asked us to slow down: nothing asks it anything until the wait is over.
+    if (sonos.rateLimitedFor() > 0) return;
     if (!force && Date.now() < quietUntil.current) return;
     sonosBusy.current = true;
     try {
       const prev = R.current.snap;
       const n = pollCount.current++;
+      const playing = !!prev?.groups.some((g) => /PLAYING|BUFFERING/.test(g.playbackState ?? ""));
+      // With nothing playing, every other tick is enough.
+      if (!force && prev && !playing && n % 2 === 1) return;
       const hh = freshHousehold.current ? undefined : prev?.householdId;
       freshHousehold.current = false;
-      const withVolumes = force || !prev || n % 3 === 0;
-      const s = await sonos.snapshot(hh, withVolumes);
+      // Sonos has a small request budget per home: what's playing every other
+      // poll (and right after a tap), volumes about once a minute.
+      const withVolumes = !prev || !hasVolumes.current || n % 6 === 0;
+      const withDetail = force || withVolumes || n % 2 === 0;
+      const s = await sonos.snapshot(hh, withVolumes, withDetail);
       if (!s) {
         // Only a repeated "not signed in" means Sonos really unlinked.
         authFails.current += 1;
@@ -266,7 +277,8 @@ export function HouseProvider({ children }: { children: ReactNode }) {
         playerVolume: s.volumes ? keep(s.playerVolume, prev?.playerVolume) : { ...(prev?.playerVolume ?? {}) },
         households: s.households?.length ? s.households : (prev?.households ?? []),
       };
-      if (s.limited) quietUntil.current = Date.now() + 12000;
+      if (s.volumes) hasVolumes.current = true;
+      if (s.limited) quietUntil.current = Date.now() + 30000;
       setSnap(merged);
       setSonosError(null);
       if (Date.now() - lastSaved.current > 20000) {
@@ -277,9 +289,13 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       sonosFails.current += 1;
       const status = e instanceof sonos.SonosError ? e.status : 0;
       if ((e as { staleHousehold?: boolean }).staleHousehold) freshHousehold.current = true;
-      if (status === 429 || status === 503) quietUntil.current = Date.now() + 15000;
-      // One hiccup is not worth a warning; a minute of them is.
-      if (sonosFails.current >= 4) {
+      if (status === 503) quietUntil.current = Date.now() + 20000;
+      if (status === 429) {
+        // Say so right away; rooms stay on screen and come back on their own.
+        const mins = Math.max(1, Math.round(sonos.rateLimitedFor() / 60000));
+        setSonosError(`Sonos asked the app to slow down. Everything comes back on its own in about ${mins} ${mins === 1 ? "minute" : "minutes"}.`);
+      } else if (sonosFails.current >= 4) {
+        // One hiccup is not worth a warning; a minute of them is.
         setSonosError(status === 404 ? errorText(e) : "Sonos isn't answering right now. The app keeps trying.");
       }
     } finally {
@@ -290,13 +306,13 @@ export function HouseProvider({ children }: { children: ReactNode }) {
   const kickTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const kickSonos = useCallback(() => {
     kickTimers.current.forEach(clearTimeout);
-    kickTimers.current = [700, 2500].map((ms) => setTimeout(() => pollSonos(true), ms));
+    kickTimers.current = [1200, 4000].map((ms) => setTimeout(() => pollSonos(true), ms));
   }, [pollSonos]);
 
   useEffect(() => {
     if (!linked || !visible) return;
     const t0 = setTimeout(() => pollSonos(true), 0);
-    const t = setInterval(() => pollSonos(false), 7000);
+    const t = setInterval(() => pollSonos(false), 10000);
     return () => {
       clearTimeout(t0);
       clearInterval(t);
@@ -473,7 +489,9 @@ export function HouseProvider({ children }: { children: ReactNode }) {
     const loadFavorites = async (force = false, favoritesOnly = false): Promise<SonosFavorite[]> => {
       const s = R.current.snap;
       if (!s) return [];
-      if (R.current.favorites && !force) return R.current.favorites;
+      favCache.current ??= store.get<FavCache | null>("cc.favs", null);
+      const fresh = Date.now() - (favCache.current?.at ?? 0) < 30 * 60 * 1000;
+      if (R.current.favorites && ((!force && fresh) || sonos.rateLimitedFor() > 0)) return R.current.favorites;
       const [f, p] = await Promise.all([
         sonos.favorites(s.householdId),
         favoritesOnly ? Promise.resolve(null) : sonos.playlists(s.householdId).catch(() => null),
@@ -481,6 +499,8 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       setFavorites(f);
       if (p) setSonosPlaylists(p);
       R.current.favorites = f;
+      favCache.current = { at: Date.now(), f, p: p ?? favCache.current?.p ?? null };
+      store.set("cc.favs", favCache.current);
       return f;
     };
 

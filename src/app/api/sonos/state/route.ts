@@ -1,16 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { readSonos, sonosCall, writeSonos, type SonosTokens } from "@/lib/server/session";
+import { rateLimitInfo, readSonos, sonosCall, writeSonos, type SonosTokens } from "@/lib/server/session";
 
 export const dynamic = "force-dynamic";
 
 /*
  * Everything the home screen needs in one trip: groups, players, what each
- * group is playing, and (when asked) every player's volume. The app polls this
- * while it's open, so it is careful with Sonos's rate limits:
+ * group is playing, and (when asked) every player's volume. Sonos gives each
+ * home a small request budget, so this is careful:
  *   - the household id comes from the app after the first call (?hh=),
- *   - volumes only when asked (?vol=1),
+ *   - what's playing only when asked (?detail=1), volumes only when asked (?vol=1),
  *   - a rate-limited or failed piece comes back empty instead of failing the
- *     whole snapshot, and "busy" is never reported as "no Sonos".
+ *     whole snapshot, and "busy" is never reported as "no Sonos",
+ *   - once Sonos says "slow down", the rest of this trip is skipped.
  */
 
 type Json = Record<string, unknown>;
@@ -22,14 +23,19 @@ export async function GET(req: NextRequest) {
   let tokens: SonosTokens = t0;
   let changed = false;
   let limited = false;
+  let retryAfter = 0;
   const get = async (path: string): Promise<{ json: Json | null; status: number }> => {
+    if (limited) return { json: null, status: 429 };
     const r = await sonosCall(tokens, path);
     if (r.refreshed) {
       tokens = r.tokens;
       changed = true;
     }
     if (r.res.status === 401) throw Object.assign(new Error("unauthorized"), { status: 401 });
-    if (r.res.status === 429) limited = true;
+    if (r.res.status === 429) {
+      limited = true;
+      retryAfter = Math.max(retryAfter, rateLimitInfo(r.res, path));
+    }
     if (!r.res.ok) return { json: null, status: r.res.status };
     return { json: (await r.res.json().catch(() => null)) as Json | null, status: r.res.status };
   };
@@ -40,13 +46,16 @@ export async function GET(req: NextRequest) {
   };
 
   try {
-    const want = req.nextUrl.searchParams.get("hh");
-    const withVolumes = req.nextUrl.searchParams.get("vol") === "1";
+    const q = req.nextUrl.searchParams;
+    const want = q.get("hh");
+    const withVolumes = q.get("vol") === "1";
+    // Older app versions don't send ?detail; they always wanted it.
+    const withDetail = q.get("detail") !== "0";
     let householdId = want ?? "";
     let households: { id: string; name?: string }[] = want ? [{ id: want }] : [];
     if (!want) {
       const hh = await get("households");
-      if (!hh.json) return done({ error: "busy", limited }, hh.status === 429 ? 429 : 503);
+      if (!hh.json) return done({ error: "busy", limited, retryAfter }, hh.status === 429 ? 429 : 503);
       households = ((hh.json.households as { id: string; name?: string }[]) ?? []).map((h) => ({ id: h.id, name: h.name }));
       if (!households.length) return done({ error: "No Sonos system was found on that account." }, 404);
       householdId = households[0].id;
@@ -55,12 +64,15 @@ export async function GET(req: NextRequest) {
     const g = await get("households/" + householdId + "/groups");
     if (!g.json) {
       // A stale household id (rare) gets a fresh look next time; anything else is just busy.
-      return done({ error: "busy", limited, staleHousehold: g.status === 404 || g.status === 410 }, g.status === 429 ? 429 : 503);
+      return done(
+        { error: "busy", limited, retryAfter, staleHousehold: g.status === 404 || g.status === 410 },
+        g.status === 429 ? 429 : 503,
+      );
     }
     const groups = ((g.json.groups as Json[]) ?? []) as unknown as { id: string; playerIds: string[]; playbackState?: string }[];
-    // Quiet rooms don't change: check what's playing every time, the rest only with volumes (every few polls).
+    // Quiet rooms don't change: only playing rooms get their details, and only when asked.
     const busy = (s?: string) => s === "PLAYBACK_STATE_PLAYING" || s === "PLAYBACK_STATE_BUFFERING";
-    const detailFor = groups.filter((grp) => withVolumes || busy(grp.playbackState));
+    const detailFor = withDetail ? groups.filter((grp) => withVolumes || busy(grp.playbackState)) : [];
     const players = ((g.json.players as Json[]) ?? []) as unknown as { id: string }[];
 
     const playback: Record<string, Json | null> = {};
@@ -84,8 +96,9 @@ export async function GET(req: NextRequest) {
       metadata,
       groupVolume: {},
       playerVolume,
-      volumes: withVolumes,
+      volumes: withVolumes && !limited,
       limited,
+      retryAfter,
       at: Date.now(),
     });
   } catch (e) {

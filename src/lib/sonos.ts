@@ -8,11 +8,30 @@ import type { SonosFavorite, SonosPlaylist, SonosSnapshot } from "./types";
 
 export class SonosError extends Error {
   status: number;
+  errorCode = "";
+  /** Seconds Sonos asked us to wait, when it rate limited us. */
+  retryAfter = 0;
   constructor(status: number, message: string) {
     super(message);
     this.status = status;
   }
 }
+
+/*
+ * Sonos gives each home a small request budget. When it says "slow down",
+ * every part of the app (polling, favorites, taps) waits together.
+ */
+let limitedUntil = 0;
+let backoffSec = 0;
+export function noteRateLimit(retryAfterSec = 0) {
+  backoffSec = Math.min(backoffSec ? backoffSec * 2 : 30, 300);
+  const wait = Math.max(retryAfterSec, backoffSec);
+  limitedUntil = Math.max(limitedUntil, Date.now() + wait * 1000);
+}
+export function noteSonosOk() {
+  backoffSec = 0;
+}
+export const rateLimitedFor = () => Math.max(0, limitedUntil - Date.now());
 
 async function call<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
   const res = await fetch("/api/sonos/v1/" + path, {
@@ -29,25 +48,40 @@ async function call<T>(path: string, init: { method?: string; body?: unknown } =
     j = null;
   }
   if (!res.ok) {
-    const o = j as { error?: string; errorCode?: string; reason?: string } | null;
-    throw new SonosError(res.status, o?.error || o?.reason || o?.errorCode || "Sonos error " + res.status);
+    const o = j as { error?: string; errorCode?: string; reason?: string; retryAfter?: number } | null;
+    const err = new SonosError(
+      res.status,
+      o?.error || o?.reason || o?.errorCode || (res.status === 429 ? "Sonos is asking apps to slow down. Try again in a minute." : "Sonos error " + res.status),
+    );
+    err.errorCode = o?.errorCode ?? "";
+    err.retryAfter = Number(o?.retryAfter) || 0;
+    if (res.status === 429) noteRateLimit(err.retryAfter);
+    throw err;
   }
+  noteSonosOk();
   return j as T;
 }
 
-export async function snapshot(householdId?: string, withVolumes = true): Promise<SonosSnapshot | null> {
+export async function snapshot(householdId?: string, withVolumes = true, withDetail = true): Promise<SonosSnapshot | null> {
   const q = new URLSearchParams();
   if (householdId) q.set("hh", householdId);
   if (withVolumes) q.set("vol", "1");
+  if (!withDetail) q.set("detail", "0");
   const res = await fetch("/api/sonos/state" + (q.size ? "?" + q.toString() : ""), { cache: "no-store" });
   if (res.status === 401) return null;
   const j = await res.json().catch(() => null);
   if (!res.ok) {
     const err = new SonosError(res.status, (j && j.error) || "Could not reach Sonos (" + res.status + ")");
     (err as SonosError & { staleHousehold?: boolean }).staleHousehold = !!(j && j.staleHousehold);
+    err.retryAfter = Number(j?.retryAfter) || 0;
+    if (res.status === 429) noteRateLimit(err.retryAfter);
     throw err;
   }
-  return j as SonosSnapshot;
+  const s = j as SonosSnapshot & { retryAfter?: number };
+  // A partly rate-limited snapshot still counts as a warning to slow down.
+  if (s.limited) noteRateLimit(Number(s.retryAfter) || 0);
+  else noteSonosOk();
+  return s;
 }
 
 export const togglePlay = (groupId: string) => call("groups/" + groupId + "/playback/togglePlayPause", { method: "POST", body: {} });

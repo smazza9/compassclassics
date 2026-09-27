@@ -97,6 +97,17 @@ export async function refreshSonos(t: SonosTokens): Promise<SonosTokens> {
  * access token when it is close to expiring or Sonos says it is stale.
  * Returns the new tokens when they changed, so the caller can save them.
  */
+/** Seconds Sonos asked us to wait after a 429 (0 when it didn't say). Logs the rate headers so we can see the limit. */
+export function rateLimitInfo(res: Response, path: string): number {
+  const ra = Number(res.headers.get("retry-after") ?? "");
+  const extra: Record<string, string> = {};
+  res.headers.forEach((v, k) => {
+    if (/rate|retry|quota|limit/i.test(k)) extra[k] = v;
+  });
+  console.warn("sonos 429", path.replace(/RINCON_\w+(:\d+)?/g, "R").replace(/Sonos_[\w.-]+/g, "HH"), JSON.stringify(extra));
+  return Number.isFinite(ra) && ra > 0 ? Math.min(ra, 3600) : 0;
+}
+
 export async function sonosCall(
   tokens: SonosTokens,
   path: string,

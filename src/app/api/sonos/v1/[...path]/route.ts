@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { readSonos, sonosCall, writeSonos } from "@/lib/server/session";
+import { rateLimitInfo, readSonos, sonosCall, writeSonos } from "@/lib/server/session";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,34 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] 
 
   const body = req.method === "GET" || req.method === "DELETE" ? undefined : await req.text();
   try {
-    const { res, tokens: t, refreshed } = await sonosCall(tokens, joined, { method: req.method, body: body || undefined });
+    let { res, tokens: t, refreshed } = await sonosCall(tokens, joined, { method: req.method, body: body || undefined });
+    let retryAfter = 0;
+    if (res.status === 429) {
+      // A short "slow down" is worth one quiet retry so a tap still works.
+      retryAfter = rateLimitInfo(res, joined);
+      if (retryAfter <= 2) {
+        await new Promise((r) => setTimeout(r, retryAfter ? retryAfter * 1000 : 1500));
+        const again = await sonosCall(t, joined, { method: req.method, body: body || undefined });
+        res = again.res;
+        t = again.tokens;
+        refreshed = refreshed || again.refreshed;
+        if (res.status === 429) retryAfter = rateLimitInfo(res, joined);
+      }
+    }
+    if (res.status === 429) {
+      const mins = Math.max(1, Math.round((retryAfter || 60) / 60));
+      const out = NextResponse.json(
+        {
+          error: "Sonos is asking apps to slow down. Give it about " + mins + (mins === 1 ? " minute" : " minutes") + " and try again.",
+          errorCode: "RATE_LIMITED",
+          retryAfter,
+          status: 429,
+        },
+        { status: 429 },
+      );
+      if (refreshed) writeSonos(out, t);
+      return out;
+    }
     const text = await res.text();
     let payload: unknown = null;
     try {
