@@ -8,7 +8,8 @@ import { hasSecret, seal, unseal } from "./seal";
  * family browsers can use the assistant, since that costs API credits.
  */
 
-export const SONOS_COOKIE = "cc_sonos";
+// Renamed Sep 27, 2026 when the Sonos key changed, so every device links again with the new key.
+export const SONOS_COOKIE = "cc_sonos2";
 export const MEMBER_COOKIE = "cc_member";
 // A local stand-in (scripts/mock-sonos.mjs) can replace the real API in development only.
 export const SONOS_API =
