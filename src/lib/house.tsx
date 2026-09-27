@@ -87,7 +87,7 @@ export interface Actions {
   refreshSonos(): Promise<void>;
   loadFavorites(force?: boolean): Promise<SonosFavorite[]>;
   unlinkSonos(): Promise<void>;
-  refreshSpotify(withDevices?: boolean): Promise<void>;
+  refreshSpotify(withDevices?: boolean): Promise<{ found: SpDevice[]; errors: string[] }>;
   enableBrowserPlayer(): Promise<void>;
   disableBrowserPlayer(): Promise<void>;
   canEq(roomId: string): boolean;
@@ -249,6 +249,8 @@ export function HouseProvider({ children }: { children: ReactNode }) {
 
   const pollSpotify = useCallback(async (withDevices = false) => {
     const list = sp.getAccounts();
+    const found: SpDevice[] = [];
+    const errors: string[] = [];
     await Promise.all(
       list.map(async (a) => {
         try {
@@ -260,13 +262,15 @@ export function HouseProvider({ children }: { children: ReactNode }) {
         if (withDevices) {
           try {
             const d = await sp.devices(a);
+            found.push(...d);
             setDevices((m) => ({ ...m, [a.id]: d }));
-          } catch {
-            /* keep the last list */
+          } catch (e) {
+            errors.push(errorText(e));
           }
         }
       }),
     );
+    return { found, errors };
   }, []);
 
   const spTick = useRef(0);
@@ -793,9 +797,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       notify("Sonos is unlinked on this device.");
     };
 
-    const refreshSpotify = async (withDevices = true) => {
-      await pollSpotify(withDevices);
-    };
+    const refreshSpotify = (withDevices = true) => pollSpotify(withDevices);
 
     const enableBrowserPlayer = async () => {
       const acct = primary();

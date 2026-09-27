@@ -2167,6 +2167,30 @@ input[type="range"].center::-webkit-slider-runnable-track {
   width: 34px;
   height: 34px;
 }
+.bt-guide {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(253, 212, 49, 0.06);
+  border: 1px solid rgba(253, 212, 49, 0.2);
+}
+.bt-guide summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--y);
+  list-style: none;
+}
+.bt-guide summary::-webkit-details-marker {
+  display: none;
+}
+.bt-guide summary svg {
+  width: 18px;
+  height: 18px;
+}
 .signature {
   display: grid;
   justify-items: center;

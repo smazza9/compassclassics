@@ -251,6 +251,31 @@ function SpotifySection() {
 function DevicesSection() {
   const h = useHouse();
   const [testing, setTesting] = useState(false);
+  const [finding, setFinding] = useState(false);
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const apple = /iPhone|iPad|Macintosh/.test(ua);
+  const android = /Android/.test(ua);
+
+  const find = async () => {
+    setFinding(true);
+    try {
+      const { found, errors } = await h.a.refreshSpotify(true);
+      const locked = found.filter((d) => d.is_restricted).length;
+      const who = h.primary?.name ?? "this";
+      if (!found.length && errors.length) h.a.notify(errors[0], "err");
+      else if (!found.length)
+        h.a.notify(
+          "Nothing awake on " + who + "'s Spotify right now. Open Spotify on a phone, TV or receiver signed in to that account, then tap Find again.",
+          "info",
+        );
+      else
+        h.a.notify(
+          "Found " + found.length + " speaker" + (found.length > 1 ? "s" : "") + (locked ? ", " + locked + " controlled by Sonos (use its room card)" : "") + ".",
+        );
+    } finally {
+      setFinding(false);
+    }
+  };
   const b = h.browser;
   const hasAcct = !!h.accounts.length;
   return (
@@ -314,12 +339,45 @@ function DevicesSection() {
           </button>
         ) : null}
         {hasAcct ? (
-          <button className="btn sm" onClick={() => h.a.refreshSpotify(true)}>
-            <Icon name="refresh" />
-            Find speakers
+          <button className="btn sm" onClick={find} disabled={finding}>
+            {finding ? <Spinner /> : <Icon name="refresh" />}
+            {finding ? "Looking…" : "Find speakers"}
           </button>
         ) : null}
       </div>
+      <details className="bt-guide">
+        <summary>
+          <Icon name="bluetooth" />
+          Add a Bluetooth speaker
+        </summary>
+        <ol className="steps">
+          <li>Turn the speaker on and put it in pairing mode. On most, hold the Bluetooth button until the light blinks.</li>
+          {apple ? (
+            <li>
+              Open the <b>Settings</b> app, tap <b>Bluetooth</b>, and tap the speaker under Other Devices. Apple only allows pairing there, for
+              every app.
+            </li>
+          ) : android ? (
+            <li>
+              Open <b>Settings</b>, then <b>Connected devices</b>, then <b>Pair new device</b>, and tap the speaker.
+            </li>
+          ) : (
+            <li>
+              On this PC, open <b>Settings</b>, then <b>Bluetooth &amp; devices</b>, then <b>Add device</b>, then <b>Bluetooth</b>, and pick the speaker.
+            </li>
+          )}
+          <li>
+            Come back here{apple ? (
+              <>
+                {" "}
+                and tap <b>Choose speaker</b> to pick it
+              </>
+            ) : null}
+            . Turn on <b>This device is a speaker</b> above.
+          </li>
+          <li>Play anything on <b>This device</b>. It comes out of the Bluetooth speaker. Next time it reconnects on its own.</li>
+        </ol>
+      </details>
       <p className="set-note">
         <b>Bluetooth</b> (a truck, a speaker, an amp): pair it with this phone, iPad or PC in the device&apos;s own Bluetooth settings,
         the usual way. Then turn on This device and music comes out of whatever it&apos;s connected to. Apple doesn&apos;t let websites
@@ -338,7 +396,7 @@ function DevicesSection() {
                   <small>
                     {d.type}
                     {h.accounts.length > 1 ? " · " + a.name : ""}
-                    {d.is_restricted ? " · controlled by its own app" : d.volume_percent != null ? " · volume " + d.volume_percent : ""}
+                    {d.is_restricted ? " · controlled by Sonos, use its room card" : d.volume_percent != null ? " · volume " + d.volume_percent : ""}
                     {d.is_active ? " · playing" : ""}
                   </small>
                 </span>
