@@ -804,7 +804,8 @@ export function HouseProvider({ children }: { children: ReactNode }) {
         return;
       }
       const ua = navigator.userAgent;
-      const kind = /iPad/.test(ua) ? "iPad" : /iPhone/.test(ua) ? "iPhone" : /Android/.test(ua) ? "Phone" : "PC";
+      const iPad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+      const kind = iPad ? "iPad" : /iPhone/.test(ua) ? "iPhone" : /Android/.test(ua) ? "Phone" : /Macintosh/.test(ua) ? "Mac" : "PC";
       await startBrowserPlayer(() => sp.accessToken(acct), "Compass Classics (" + kind + ")");
     };
 

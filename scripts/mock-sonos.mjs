@@ -13,9 +13,9 @@ const port = Number(process.argv[process.argv.indexOf("--port") + 1]) || 5099;
 const HH = "Sonos_MockHouse.1";
 
 const players = [
-  { id: "RINCON_MOCK000000000101400", name: "Living Room", icon: "livingroom", deviceIds: ["RINCON_MOCK000000000101400", "RINCON_MOCK000000000201400"], capabilities: ["PLAYBACK", "CLOUD", "HT_PLAYBACK", "AUDIO_CLIP"] },
-  { id: "RINCON_MOCK000000000301400", name: "Patio", icon: "patio", deviceIds: ["RINCON_MOCK000000000301400", "RINCON_MOCK000000000401400"], capabilities: ["PLAYBACK", "CLOUD", "AUDIO_CLIP"] },
-  { id: "RINCON_MOCK000000000501400", name: "Garage", icon: "garage", deviceIds: ["RINCON_MOCK000000000501400"], capabilities: ["PLAYBACK", "CLOUD", "LINE_IN"] },
+  { id: "RINCON_MOCK0000000000101400", name: "Living Room", icon: "livingroom", deviceIds: ["RINCON_MOCK0000000000101400", "RINCON_MOCK0000000000101401"], capabilities: ["PLAYBACK", "CLOUD", "HT_PLAYBACK", "AUDIO_CLIP"] },
+  { id: "RINCON_MOCK0000000000201400", name: "Patio", icon: "patio", deviceIds: ["RINCON_MOCK0000000000201400", "RINCON_MOCK0000000000201401"], capabilities: ["PLAYBACK", "CLOUD", "AUDIO_CLIP"] },
+  { id: "RINCON_MOCK0000000000301400", name: "Garage", icon: "garage", deviceIds: ["RINCON_MOCK0000000000301400"], capabilities: ["PLAYBACK", "CLOUD", "LINE_IN"] },
 ];
 
 const art = (seed) => `https://picsum.photos/seed/${encodeURIComponent(seed)}/300`;

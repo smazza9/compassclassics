@@ -258,9 +258,9 @@ function DevicesSection() {
         <div>
           <h3>
             <Icon name="bluetooth" />
-            Speakers and devices
+            Bluetooth and Wi-Fi speakers
           </h3>
-          <p>This device, Bluetooth, and Spotify speakers</p>
+          <p>This device, anything it&apos;s paired to, and Spotify speakers</p>
         </div>
       </div>
 
@@ -268,7 +268,9 @@ function DevicesSection() {
         <div>
           <h4>This device is a speaker</h4>
           <p>
-            {b.state === "ready"
+            {!hasAcct
+              ? "Connect Spotify above first, then this switch turns on."
+              : b.state === "ready"
               ? "Ready. It shows on the home screen as This device."
               : b.state === "loading"
                 ? "Starting…"
@@ -312,8 +314,10 @@ function DevicesSection() {
         ) : null}
       </div>
       <p className="set-note">
-        Bluetooth: pair the speaker or amp with this phone or PC in its own Bluetooth settings, then turn on This device. Test sound
-        plays a short chime through whatever this device is connected to.
+        <b>Bluetooth</b> (a truck, a speaker, an amp): pair it with this phone, iPad or PC in the device&apos;s own Bluetooth settings,
+        the usual way. Then turn on This device and music comes out of whatever it&apos;s connected to. Apple doesn&apos;t let websites
+        pair Bluetooth themselves, so the pairing always happens there. <b>Wi-Fi</b>: Sonos rooms and Spotify speakers (TVs, receivers,
+        phones running Spotify) show up on their own. Test sound plays a short chime to check the connection.
       </p>
 
       {hasAcct ? (
