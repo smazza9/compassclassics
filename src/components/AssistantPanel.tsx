@@ -6,6 +6,7 @@ import { useHouse, type House } from "@/lib/house";
 import { askAssistant, AssistantLocked, type ChatLine } from "@/lib/assistantClient";
 import { cx, errorText } from "@/lib/util";
 import { Icon } from "./Icons";
+import { VoicePanel } from "./VoicePanel";
 
 /* The conversation lives outside the component so it survives switching tabs. */
 interface ChatState {
@@ -52,6 +53,12 @@ export function queueAsk(text: string) {
 }
 
 export function AssistantPanel() {
+  const h = useHouse();
+  if (h.config?.voiceReady) return <VoicePanel />;
+  return <TypedAssistant />;
+}
+
+function TypedAssistant() {
   const h = useHouse();
   const state = useSyncExternalStore(subscribe, () => chat, () => chat);
   const houseRef = useRef<House>(h);

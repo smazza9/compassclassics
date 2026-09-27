@@ -125,9 +125,9 @@ async function findItem(h: House, query: string, kind: string): Promise<PlayItem
   return null;
 }
 
-type Input = Record<string, unknown>;
+export type Input = Record<string, unknown>;
 
-async function runTool(h: House, name: string, input: Input): Promise<{ text: string; action?: string; error?: boolean }> {
+export async function runTool(h: House, name: string, input: Input): Promise<{ text: string; action?: string; error?: boolean }> {
   try {
     switch (name) {
       case "play_music": {

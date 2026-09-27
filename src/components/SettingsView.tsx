@@ -735,7 +735,7 @@ function AssistantSection() {
             <Icon name="sparkle" />
             Assistant
           </h3>
-          <p>Ask for music in plain words, or talk to it</p>
+          <p>{c?.voiceReady ? "Talk to it and it talks back" : "Ask for music in plain words, or talk to it"}</p>
         </div>
         <Status
           on={!!c?.assistantReady && !!c?.member}

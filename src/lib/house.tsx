@@ -941,7 +941,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
         const override = sp.clientIdOverride();
         setConfig({ ...j, spotifyClientId: override || j.spotifyClientId });
       } catch {
-        setConfig({ sonosReady: false, sonosLinked: false, assistantReady: false, spotifyClientId: sp.clientIdOverride(), member: false, pinSet: false });
+        setConfig({ sonosReady: false, sonosLinked: false, assistantReady: false, voiceReady: false, spotifyClientId: sp.clientIdOverride(), member: false, pinSet: false });
       }
     };
 

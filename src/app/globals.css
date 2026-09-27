@@ -2506,6 +2506,116 @@ input[type="range"].center::-webkit-slider-runnable-track {
     padding-bottom: 0;
   }
 }
+/* Talk button */
+.talk-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 20px 16px;
+}
+.talk {
+  position: relative;
+  flex: 0 0 auto;
+  width: 84px;
+  height: 84px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 0;
+  background: radial-gradient(circle at 35% 30%, var(--y-hi), var(--y) 55%, var(--y-deep));
+  color: var(--ink);
+  box-shadow: 0 18px 40px -16px rgba(253, 212, 49, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: transform 0.15s var(--ease);
+}
+.talk:active {
+  transform: scale(0.95);
+}
+.talk svg {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  z-index: 1;
+}
+.talk .ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(253, 212, 49, 0.55);
+  opacity: 0;
+}
+.talk.st-listening .ring {
+  animation: talkRing 1.8s ease-out infinite;
+}
+.talk.st-listening .ring.r2 {
+  animation-delay: 0.9s;
+}
+.talk.st-speaking {
+  animation: talkPulse 0.9s ease-in-out infinite alternate;
+}
+.talk.st-working .ring,
+.talk.st-connecting .ring {
+  opacity: 1;
+  border-color: transparent;
+  border-top-color: var(--y);
+  animation: spin 0.9s linear infinite;
+}
+.talk.st-error {
+  background: rgba(232, 234, 237, 0.12);
+  color: var(--fg1);
+  box-shadow: none;
+}
+@keyframes talkRing {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+@keyframes talkPulse {
+  from {
+    box-shadow: 0 0 0 0 rgba(253, 212, 49, 0.45), 0 18px 40px -16px rgba(253, 212, 49, 0.8);
+  }
+  to {
+    box-shadow: 0 0 0 14px rgba(253, 212, 49, 0), 0 18px 40px -16px rgba(253, 212, 49, 0.8);
+  }
+}
+.talk-label b {
+  display: block;
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.talk-label small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--fg3);
+}
+.act-line {
+  align-self: flex-start;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 92%;
+  font-size: 12.5px;
+  color: var(--fg3);
+}
+.act-line svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  color: var(--ok);
+}
+.act-line.err svg {
+  color: var(--warn);
+}
 .lock {
   margin: 10px 20px;
   padding: 16px;

@@ -180,6 +180,8 @@ export interface AppConfig {
   sonosReady: boolean;
   sonosLinked: boolean;
   assistantReady: boolean;
+  /** The talking assistant (OpenAI Realtime) has its key. */
+  voiceReady?: boolean;
   spotifyClientId: string | null;
   member: boolean;
   pinSet: boolean;

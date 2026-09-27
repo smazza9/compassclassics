@@ -9,7 +9,8 @@ export async function GET(req: NextRequest) {
     {
       sonosReady: sonosConfigured(),
       sonosLinked: !!readSonos(req),
-      assistantReady: !!process.env.ANTHROPIC_API_KEY,
+      assistantReady: !!process.env.ANTHROPIC_API_KEY || !!process.env.OPENAI_API_KEY,
+      voiceReady: !!process.env.OPENAI_API_KEY,
       spotifyClientId: process.env.SPOTIFY_CLIENT_ID || null,
       member: isMember(req),
       pinSet: !!process.env.APP_PIN,
