@@ -51,6 +51,8 @@ export interface House {
   sonosError: string | null;
   favorites: SonosFavorite[] | null;
   sonosPlaylists: SonosPlaylist[] | null;
+  /** The signed-in Spotify account's own playlists (search can't see private ones). */
+  spotifyPlaylists: sp.SpPlaylist[] | null;
   accounts: SpotifyAccount[];
   primary: SpotifyAccount | null;
   devices: Record<string, SpDevice[]>;
@@ -144,6 +146,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<SonosFavorite[] | null>(null);
   const [sonosPlaylists, setSonosPlaylists] = useState<SonosPlaylist[] | null>(null);
   const [devices, setDevices] = useState<Record<string, SpDevice[]>>({});
+  const [spPlaylists, setSpPlaylists] = useState<sp.SpPlaylist[] | null>(null);
   const [spStates, setSpStates] = useState<Record<string, { s: SpPlayerState | null; at: number }>>({});
   const [hubCfg, setHubCfg] = useState<HubConfig | null>(() => hubApi.getHubConfig());
   const [hub, setHub] = useState<HubState>({ status: "off", rooms: [] });
@@ -333,6 +336,26 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       clearInterval(t);
     };
   }, [hubCfg, visible, checkHubWith]);
+
+  // Dad's own Spotify playlists, refreshed every ten minutes while the app is open.
+  const primaryId = accounts[0]?.id;
+  useEffect(() => {
+    const acct = sp.getAccounts()[0];
+    if (!primaryId || !acct || !visible) return;
+    let dead = false;
+    const load = () =>
+      sp
+        .myPlaylists(acct)
+        .then((l) => !dead && setSpPlaylists(l.filter((p) => p.name !== sp.SONOS_PLAYLIST)))
+        .catch(() => {});
+    const t0 = setTimeout(load, 500);
+    const t = setInterval(load, 10 * 60 * 1000);
+    return () => {
+      dead = true;
+      clearTimeout(t0);
+      clearInterval(t);
+    };
+  }, [primaryId, visible]);
 
   // The example house keeps playing: advance the clocks once a second.
   useEffect(() => {
@@ -1033,6 +1056,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
     sonosError,
     favorites,
     sonosPlaylists,
+    spotifyPlaylists: spPlaylists,
     accounts,
     primary: accounts[0] ?? null,
     devices,

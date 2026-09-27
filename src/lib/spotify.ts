@@ -570,8 +570,28 @@ export async function resolveUris(acct: SpotifyAccount, item: Extract<PlayItem, 
       return { uris, first: a.tracks?.items?.[0]?.name };
     }
     case "playlist": {
-      const t = await playlistTracks(acct, item.id, max);
-      return { uris: t.map((x) => x.uri).slice(0, max), first: t[0]?.name };
+      try {
+        const t = await playlistTracks(acct, item.id, max);
+        if (t.length) return { uris: t.map((x) => x.uri).slice(0, max), first: t[0]?.name };
+      } catch (e) {
+        if (!(e instanceof SpotifyError && (e.status === 403 || e.status === 404))) throw e;
+      }
+      // Spotify only lets apps read playlists the user owns. Play songs that
+      // match the playlist's name instead, so "play Motown classics" still plays Motown.
+      const words = item.title.replace(/\b(playlist|mix|radio|this is|best of|hits)\b/gi, " ").replace(/\s+/g, " ").trim() || item.title;
+      const pages = await Promise.all([0, 10, 20].map((o) => search(acct, words, ["track"], o).catch(() => null)));
+      const seen = new Set<string>();
+      const uris: string[] = [];
+      let first: string | undefined;
+      for (const p of pages) {
+        for (const t of p?.tracks ?? []) {
+          if (seen.has(t.id)) continue;
+          seen.add(t.id);
+          uris.push(t.uri);
+          first ??= t.name;
+        }
+      }
+      return { uris: uris.slice(0, max), first };
     }
     case "artist": {
       const t = await artistTracks(acct, item.title, 3);

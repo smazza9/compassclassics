@@ -41,7 +41,11 @@ export function houseSnapshot(h: House): string {
     }
   }
   const favs = h.live ? (h.favorites ?? []).map((f) => f.name) : DEMO_FAVS.map((f) => f.name);
-  if (favs.length) lines.push("Sonos favorites: " + favs.slice(0, 40).join("; "));
+  if (favs.length) lines.push("Sonos favorites (play instantly): " + favs.filter((n) => !n.startsWith(sp.SONOS_PLAYLIST)).slice(0, 40).join("; "));
+  const sonosPls = (h.sonosPlaylists ?? []).map((p) => p.name).filter((n) => n !== sp.SONOS_PLAYLIST);
+  if (h.live && sonosPls.length) lines.push("Sonos playlists (play instantly): " + sonosPls.slice(0, 40).join("; "));
+  const mine = (h.spotifyPlaylists ?? []).map((p) => p.name);
+  if (mine.length) lines.push("His own Spotify playlists: " + mine.slice(0, 50).join("; "));
   lines.push("Scenes: " + h.scenes.map((s) => s.name).join(", "));
   lines.push(h.primary ? "Spotify: connected, full search available." : "Spotify: not connected, so only Sonos favorites can be played.");
   const eqOk = h.live ? h.hub.status === "ok" : true;
@@ -89,38 +93,62 @@ const roomList = (h: House) => allRooms(h).map((r) => r.name).join(", ");
 
 /* ---------- tools ---------- */
 
+/**
+ * Find what he asked for, looking where his music actually is:
+ *   1. his Sonos favorites and Sonos playlists (they play instantly anywhere),
+ *   2. his own Spotify playlists (search can't see private ones),
+ *   3. all of Spotify.
+ */
 async function findItem(h: House, query: string, kind: string): Promise<PlayItem | null> {
-  if (kind === "favorite" || !h.primary) {
-    const favs = h.live ? await h.a.loadFavorites() : [];
-    const q = norm(query);
-    if (h.live) {
-      const f = favs.find((x) => norm(x.name) === q) ?? favs.find((x) => norm(x.name).includes(q) || q.includes(norm(x.name)));
-      if (f) return { type: "sonos-favorite", id: f.id, title: f.name, subtitle: f.description || f.service?.name || "Sonos favorite", art: f.imageUrl };
-    } else {
-      for (const f of DEMO_FAVS) {
-        if (norm(f.name).includes(q) || q.includes(norm(f.name))) return { type: "demo", favId: f.id, title: f.name, subtitle: f.kind };
-        const i = f.tracks.findIndex((t) => q.includes(norm(t[0])) || norm(t[0] + " " + t[1]).includes(q));
-        if (i >= 0) return { type: "demo", favId: f.id, start: i, title: f.tracks[i][0], subtitle: f.tracks[i][1] };
-      }
-      // In the example house, fall back to the favorite that best fits the words.
-      const words = q.split(" ");
-      const scored = DEMO_FAVS.map((f) => ({ f, s: words.filter((w) => w.length > 2 && norm(f.name + " " + f.tracks.map((t) => t[1]).join(" ")).includes(w)).length }));
-      scored.sort((a, b) => b.s - a.s);
-      if (scored[0].s > 0) return { type: "demo", favId: scored[0].f.id, title: scored[0].f.name, subtitle: scored[0].f.kind };
+  const q = norm(query);
+  if (!q) return null;
+  const close = (name: string) => {
+    const n = norm(name);
+    return n === q || (q.length >= 3 && (n.includes(q) || q.includes(n)));
+  };
+  const listy = kind === "favorite" || kind === "playlist";
+
+  if (h.live) {
+    const favs = (await h.a.loadFavorites().catch(() => [])).filter((f) => !norm(f.name).startsWith(norm(sp.SONOS_PLAYLIST)));
+    const f = favs.find((x) => norm(x.name) === q) ?? (listy ? favs.find((x) => close(x.name)) : undefined);
+    if (f) return { type: "sonos-favorite", id: f.id, title: f.name, subtitle: f.description || f.service?.name || "Sonos favorite", art: f.imageUrl };
+    const pls = (h.sonosPlaylists ?? []).filter((p) => norm(p.name) !== norm(sp.SONOS_PLAYLIST));
+    const p = pls.find((x) => norm(x.name) === q) ?? (listy ? pls.find((x) => close(x.name)) : undefined);
+    if (p) return { type: "sonos-playlist", id: p.id, title: p.name, subtitle: (p.trackCount ?? 0) + " songs · Sonos playlist" };
+  } else if (!h.primary) {
+    for (const f of DEMO_FAVS) {
+      if (close(f.name)) return { type: "demo", favId: f.id, title: f.name, subtitle: f.kind };
+      const i = f.tracks.findIndex((t) => q.includes(norm(t[0])) || norm(t[0] + " " + t[1]).includes(q));
+      if (i >= 0) return { type: "demo", favId: f.id, start: i, title: f.tracks[i][0], subtitle: f.tracks[i][1] };
     }
-    if (kind === "favorite" || !h.primary) return null;
+    const words = q.split(" ");
+    const scored = DEMO_FAVS.map((f) => ({ f, s: words.filter((w) => w.length > 2 && norm(f.name + " " + f.tracks.map((t) => t[1]).join(" ")).includes(w)).length }));
+    scored.sort((a, b) => b.s - a.s);
+    if (scored[0].s > 0) return { type: "demo", favId: scored[0].f.id, title: scored[0].f.name, subtitle: scored[0].f.kind };
+    return null;
   }
-  const acct = h.primary!;
+  if (!h.primary) return null;
+  const acct = h.primary;
+
+  if (listy) {
+    const mine = h.spotifyPlaylists ?? (await sp.myPlaylists(acct).catch(() => []));
+    const own = mine.find((x) => norm(x.name) === q) ?? mine.find((x) => close(x.name));
+    if (own) return sp.playlistToItem(own);
+  }
+
   const type: SpotifyKind = kind === "song" ? "track" : kind === "artist" ? "artist" : kind === "album" ? "album" : "playlist";
   const r = await sp.search(acct, query, [type]);
   if (type === "track" && r.tracks[0]) return sp.trackToItem(r.tracks[0]);
   if (type === "artist" && r.artists[0]) return sp.artistToItem(r.artists[0]);
   if (type === "album" && r.albums[0]) return sp.albumToItem(r.albums[0]);
   if (type === "playlist") {
-    // Prefer playlists he owns (Spotify only lets apps read those), then any.
-    const mine = r.playlists.find((p) => p.owner?.id === acct.id);
-    const p = mine ?? r.playlists[0];
+    const p = r.playlists.find((x) => x.owner?.id === acct.id) ?? r.playlists[0];
     if (p) return sp.playlistToItem(p);
+  }
+  // Nothing by that name: play songs that match instead of giving up.
+  if (type !== "track") {
+    const t = await sp.search(acct, query, ["track"]);
+    if (t.tracks[0]) return sp.trackToItem(t.tracks[0]);
   }
   return null;
 }
