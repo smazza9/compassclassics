@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { PlayItem } from "@/lib/types";
 import { useHouse } from "@/lib/house";
-import { errorText } from "@/lib/util";
+import { errorText, norm } from "@/lib/util";
 import { Icon } from "./Icons";
 import { Spinner } from "./ui";
 
@@ -103,6 +103,13 @@ export function SonosSetupSteps({ seed, onReady, readyLabel = "Check" }: { seed?
             ? "Getting the playlist ready in " + who + "'s Spotify…"
             : ""}
       </p>
+      {h.sonosPlaylists?.some((p) => norm(p.name) === norm("Compass Classics")) ? (
+        <p className="s-warn">
+          Heads up: the Compass Classics in the Sonos app right now is a <b>Sonos Playlist</b>, and Sonos won&apos;t let apps change those.
+          Use the Spotify one: Sonos app, Browse, Spotify, Your Library, Playlists, Compass Classics (with the Spotify logo), then the
+          three dots and Add to Favorites.
+        </p>
+      ) : null}
       {note ? <p className="s-warn">{note}</p> : null}
       <button className="primary" onClick={check} disabled={checking}>
         {checking ? <Spinner /> : <Icon name="play" />}

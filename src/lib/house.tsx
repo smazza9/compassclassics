@@ -412,12 +412,21 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       return f;
     };
 
-    /** The favorite the app refills: a room's own if there is one, else the shared "Compass Classics". */
-    const compassFavorite = (favs: SonosFavorite[], room?: string) =>
-      (room ? favs.find((f) => norm(f.name) === norm(sp.roomPlaylistName(room))) : undefined) ??
-      favs.find((f) => norm(f.name) === norm(sp.SONOS_PLAYLIST)) ??
-      favs.find((f) => norm(f.name).startsWith(norm(sp.SONOS_PLAYLIST))) ??
-      null;
+    /**
+     * The favorite the app refills: a room's own if there is one, else the
+     * shared "Compass Classics". It has to be the Spotify playlist; a Sonos
+     * playlist with the same name can't be refilled by an app.
+     */
+    const refillable = (f: SonosFavorite) => !/sonos playlist/i.test((f.description ?? "") + " " + (f.service?.name ?? ""));
+    const compassFavorite = (favs: SonosFavorite[], room?: string) => {
+      const ok = favs.filter(refillable);
+      return (
+        (room ? ok.find((f) => norm(f.name) === norm(sp.roomPlaylistName(room))) : undefined) ??
+        ok.find((f) => norm(f.name) === norm(sp.SONOS_PLAYLIST)) ??
+        ok.find((f) => norm(f.name).startsWith(norm(sp.SONOS_PLAYLIST))) ??
+        null
+      );
+    };
 
     const playlistIds = new Map<string, string>();
     const roomPlaylistId = async (acct: SpotifyAccount, name: string) => {
